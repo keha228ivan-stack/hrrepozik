@@ -42,7 +42,7 @@ describe("auth.service", () => {
         email: "user@test.dev",
         password: "password123",
       }),
-    ).rejects.toMatchObject<HttpError>({ statusCode: 400 });
+    ).rejects.toMatchObject<HttpError>({ statusCode: 409 });
   });
 
   it("hashes password and creates a new user", async () => {
