@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  active
+  onboarding
+  vacation
+  inactive
+}
+
+enum CourseStatus {
+  draft
+  published
+  archived
+}
+
+enum EnrollmentStatus {
+  CREATED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id                String              @id @default(cuid())
+  fullName          String
+  email             String              @unique
+  passwordHash      String
+  role              UserRole
+  departmentId      String?
+  department        Department?         @relation(fields: [departmentId], references: [id])
+  employeeProfile   EmployeeProfile?
+  enrollments       Enrollment[]
+  quizAttempts      QuizAttempt[]
+  certificates      Certificate[]
+  performanceReview PerformanceReview[]
+  notifications     Notification[]
+}
+
+model EmployeeProfile {
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  user              User           @relation(fields: [userId], references: [id])
+  position          String
+  avatarUrl         String?
+  performance       Int
+  status            EmployeeStatus
+  completedCourses  Int            @default(0)
+  inProgressCourses Int            @default(0)
+}
+
+model Department {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model Course {
+  id             String             @id @default(cuid())
+  title          String
+  category       String
+  level          String
+  duration       String
+  description    String
+  instructor     String
+  status         CourseStatus
+  enrolledCount  Int                @default(0)
+  completedCount Int                @default(0)
+  modules        CourseModule[]
+  attachments    CourseAttachment[]
+  enrollments    Enrollment[]
+  quizzes        Quiz[]
+  certificates   Certificate[]
+}
+
+model CourseModule {
+  id          String   @id @default(cuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id])
+  title       String
+  description String
+  duration    String
+}
+
+model CourseAttachment {
+  id       String  @id @default(cuid())
+  courseId String
+  course   Course  @relation(fields: [courseId], references: [id])
+  name     String
+  type     String
+  url      String
+}
+
+model Enrollment {
+  id       String           @id @default(cuid())
+  userId   String
+  courseId String
+  user     User             @relation(fields: [userId], references: [id])
+  course   Course           @relation(fields: [courseId], references: [id])
+  progress Int              @default(0)
+  status   EnrollmentStatus @default(CREATED)
+  deadline DateTime
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+model Quiz {
+  id              String         @id @default(cuid())
+  courseId        String
+  course          Course         @relation(fields: [courseId], references: [id])
+  title           String
+  passingScore    Int
+  durationMinutes Int
+  questions       QuizQuestion[]
+  attempts        QuizAttempt[]
+}
+
+model QuizQuestion {
+  id          String             @id @default(cuid())
+  quizId       String
+  quiz         Quiz               @relation(fields: [quizId], references: [id])
+  question     String
+  answerType   String
+  points       Int
+  explanation  String?
+  options      QuizAnswerOption[]
+}
+
+model QuizAnswerOption {
+  id         String       @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id])
+  text       String
+  isCorrect  Boolean      @default(false)
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  quizId        String
+  userId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  score         Int
+  passed        Boolean
+  completedAt   DateTime
+  attemptCount  Int      @default(1)
+}
+
+model Certificate {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  user      User     @relation(fields: [userId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id])
+  issueDate DateTime
+}
+
+model PerformanceReview {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  month          String
+  score          Int
+  managerComment String
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  description String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}

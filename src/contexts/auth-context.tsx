@@ -1,0 +1,181 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+
+type Role = "manager" | "employee";
+
+type AuthUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: Role;
+};
+
+type AuthResponse = {
+  access_token: string;
+  token_type: "bearer";
+  user?: AuthUser;
+  message?: string;
+};
+
+type AuthContextValue = {
+  user: AuthUser | null;
+  token: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  role: Role | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (fullName: string, email: string, password: string, role: Role) => Promise<void>;
+  logout: () => void;
+  authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const TOKEN_STORAGE_KEY = "hr_auth_token";
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const persistToken = (nextToken: string | null) => {
+    if (typeof window === "undefined") return;
+    if (nextToken) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  };
+
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    persistToken(null);
+  }, []);
+
+  const fetchCurrentUser = useCallback(async (accessToken: string) => {
+    const response = await fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      throw new Error("Unauthorized");
+    }
+
+    const data = (await response.json()) as { user: AuthUser };
+    return data.user;
+  }, []);
+
+  useEffect(() => {
+    const restore = async () => {
+      try {
+        const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (!savedToken) return;
+
+        const currentUser = await fetchCurrentUser(savedToken);
+        setToken(savedToken);
+        setUser(currentUser);
+      } catch {
+        logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void restore();
+  }, [fetchCurrentUser, logout]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? "Не удалось войти");
+      }
+
+      const data = (await response.json()) as AuthResponse;
+      const currentUser = data.user ?? (await fetchCurrentUser(data.access_token));
+      setToken(data.access_token);
+      setUser(currentUser);
+      persistToken(data.access_token);
+    },
+    [],
+  );
+
+  const register = useCallback(
+    async (fullName: string, email: string, password: string, role: Role) => {
+      const backendRole = role === "manager" ? "MANAGER" : "EMPLOYEE";
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password, role: backendRole }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? "Не удалось зарегистрироваться");
+      }
+
+      const data = (await response.json()) as AuthResponse;
+      const currentUser = data.user ?? (await fetchCurrentUser(data.access_token));
+      setToken(data.access_token);
+      setUser(currentUser);
+      persistToken(data.access_token);
+    },
+    [],
+  );
+
+  const authFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!token) {
+        throw new Error("Unauthorized");
+      }
+
+      const response = await fetch(input, {
+        ...init,
+        headers: {
+          ...(init?.headers ?? {}),
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        logout();
+      }
+
+      return response;
+    },
+    [logout, token],
+  );
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      token,
+      isLoading,
+      isAuthenticated: Boolean(user && token),
+      role: user?.role ?? null,
+      login,
+      register,
+      logout,
+      authFetch,
+    }),
+    [authFetch, isLoading, login, logout, register, token, user],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
+}
