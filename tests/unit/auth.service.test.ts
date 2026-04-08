@@ -42,7 +42,7 @@ describe("auth.service", () => {
         email: "user@test.dev",
         password: "password123",
       }),
-    ).rejects.toMatchObject<HttpError>({ statusCode: 400 });
+    ).rejects.toMatchObject<HttpError>({ statusCode: 409 });
   });
 
   it("hashes password and creates a new user", async () => {
@@ -75,6 +75,32 @@ describe("auth.service", () => {
       message: "User registered successfully",
       access_token: "jwt-token",
       token_type: "bearer",
+    });
+  });
+
+  it("creates user with derived full name when fullName is missing", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+    hashPasswordMock.mockResolvedValueOnce("hashed-password");
+    createMock.mockResolvedValueOnce({
+      id: "u-2",
+      fullName: "new-user",
+      email: "new-user@test.dev",
+      role: "EMPLOYEE",
+    });
+    signAccessTokenMock.mockReturnValueOnce("jwt-token-2");
+
+    await registerUser({
+      email: "new-user@test.dev",
+      password: "password123",
+    });
+
+    expect(createMock).toHaveBeenCalledWith({
+      data: {
+        fullName: "new-user",
+        email: "new-user@test.dev",
+        passwordHash: "hashed-password",
+        role: "EMPLOYEE",
+      },
     });
   });
 

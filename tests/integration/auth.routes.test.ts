@@ -67,7 +67,7 @@ describe("auth routes integration", () => {
       }),
     );
 
-    expect(duplicateResponse.status).toBe(400);
+    expect(duplicateResponse.status).toBe(409);
     await expect(duplicateResponse.json()).resolves.toMatchObject({
       error: "User with this email already exists",
     });
@@ -106,5 +106,80 @@ describe("auth routes integration", () => {
     await expect(invalidLoginResponse.json()).resolves.toMatchObject({
       error: "Invalid credentials",
     });
+  });
+
+  it("returns 400 for invalid registration payload", async () => {
+    const users: DbUser[] = [];
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        user: {
+          findUnique: async ({ where }: { where: { email: string } }) =>
+            users.find((user) => user.email === where.email) ?? null,
+          create: async ({ data }: { data: Omit<DbUser, "id"> }) => {
+            const created: DbUser = { id: `u-${users.length + 1}`, ...data };
+            users.push(created);
+            return created;
+          },
+        },
+      },
+    }));
+
+    const registerRoute = await import("@/app/api/auth/register/route");
+
+    const withoutFullNameResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "new-user@test.dev",
+          password: "123456",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(withoutFullNameResponse.status).toBe(201);
+
+    const missingEmailResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Test User",
+          password: "password123",
+        }),
+      }),
+    );
+
+    expect(missingEmailResponse.status).toBe(400);
+
+    const invalidEmailResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Test User",
+          email: "not-an-email",
+          password: "password123",
+        }),
+      }),
+    );
+
+    expect(invalidEmailResponse.status).toBe(400);
+
+    const weakPasswordResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Test User",
+          email: "user@test.dev",
+          password: "123",
+        }),
+      }),
+    );
+
+    expect(weakPasswordResponse.status).toBe(400);
   });
 });
