@@ -78,6 +78,32 @@ describe("auth.service", () => {
     });
   });
 
+  it("creates user with derived full name when fullName is missing", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+    hashPasswordMock.mockResolvedValueOnce("hashed-password");
+    createMock.mockResolvedValueOnce({
+      id: "u-2",
+      fullName: "new-user",
+      email: "new-user@test.dev",
+      role: "EMPLOYEE",
+    });
+    signAccessTokenMock.mockReturnValueOnce("jwt-token-2");
+
+    await registerUser({
+      email: "new-user@test.dev",
+      password: "password123",
+    });
+
+    expect(createMock).toHaveBeenCalledWith({
+      data: {
+        fullName: "new-user",
+        email: "new-user@test.dev",
+        passwordHash: "hashed-password",
+        role: "EMPLOYEE",
+      },
+    });
+  });
+
   it("returns 401 when user does not exist during login", async () => {
     findUniqueMock.mockResolvedValueOnce(null);
 

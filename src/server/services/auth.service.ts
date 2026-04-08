@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { HttpError } from "@/server/http-error";
 
 type RegisterInput = {
-  fullName: string;
+  fullName?: string;
   email: string;
   password: string;
   role?: UserRole;
@@ -23,6 +23,7 @@ export async function registerUser(input: RegisterInput) {
   }
 
   const normalizedEmail = input.email.trim().toLowerCase();
+  const normalizedFullName = input.fullName?.trim() || normalizedEmail.split("@")[0] || "User";
 
   try {
     const existing = await db.user.findUnique({ where: { email: normalizedEmail } });
@@ -34,7 +35,7 @@ export async function registerUser(input: RegisterInput) {
 
     const user = await db.user.create({
       data: {
-        fullName: input.fullName,
+        fullName: normalizedFullName,
         email: normalizedEmail,
         passwordHash,
         role: input.role ?? UserRole.EMPLOYEE,

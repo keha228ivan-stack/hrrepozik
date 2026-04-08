@@ -3,9 +3,9 @@ import { registerUser } from "@/server/services/auth.service";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
 const registerSchema = z.object({
-  fullName: z.string().min(2),
+  fullName: z.string().trim().min(2).optional(),
   email: z.string().trim().email(),
-  password: z.string().min(8),
+  password: z.string().min(6),
   role: z.enum(["MANAGER", "EMPLOYEE"]).optional(),
 });
 
