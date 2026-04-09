@@ -3,7 +3,7 @@ import { HttpError } from "@/server/http-error";
 
 export type AuthTokenPayload = {
   user_id: string;
-  role?: "manager" | "employee";
+  role?: "manager";
 };
 
 const DEV_FALLBACK_JWT_SECRET = "dev-insecure-jwt-secret";
@@ -39,7 +39,7 @@ export function verifyAccessToken(token: string): AuthTokenPayload {
     }
 
     const role = decoded.role;
-    const normalizedRole = role === "manager" || role === "employee" ? role : undefined;
+    const normalizedRole = role === "manager" ? role : undefined;
 
     return {
       user_id: decoded.user_id,

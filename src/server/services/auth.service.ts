@@ -10,7 +10,6 @@ type RegisterInput = {
   fullName?: string;
   email: string;
   password: string;
-  role?: UserRole;
 };
 
 type LoginInput = {
@@ -23,14 +22,14 @@ type InMemoryUser = {
   fullName: string;
   email: string;
   passwordHash: string;
-  role: UserRole;
+  role: UserRole.MANAGER;
 };
 
 export type AuthUserProfile = {
   id: string;
   fullName: string;
   email: string;
-  role: "manager" | "employee";
+  role: "manager";
 };
 
 const inMemoryUsers = new Map<string, InMemoryUser>();
@@ -106,11 +105,10 @@ function toLoginError(error: unknown): HttpError {
   return new HttpError(500, "Login failed due to an unexpected server error");
 }
 
-function buildAuthResponse(user: { id: string; role: UserRole }) {
-  const role = user.role.toLowerCase() as "manager" | "employee";
+function buildAuthResponse(user: { id: string }) {
   const accessToken = signAccessToken({
     user_id: user.id,
-    role,
+    role: "manager",
   });
 
   return {
@@ -133,14 +131,14 @@ async function registerUserInMemory(input: RegisterInput) {
     fullName: normalizedFullName,
     email: normalizedEmail,
     passwordHash,
-    role: input.role ?? UserRole.EMPLOYEE,
+    role: UserRole.MANAGER,
   };
 
   inMemoryUsers.set(normalizedEmail, user);
 
   const auth = buildAuthResponse(user);
   return {
-    message: "User registered successfully",
+    message: "Manager registered successfully",
     ...auth,
   };
 }
@@ -161,12 +159,12 @@ async function loginUserInMemory(input: LoginInput) {
   return buildAuthResponse(user);
 }
 
-function toAuthUserProfile(user: { id: string; fullName: string; email: string; role: UserRole }): AuthUserProfile {
+function toAuthUserProfile(user: { id: string; fullName: string; email: string }): AuthUserProfile {
   return {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
-    role: user.role.toLowerCase() as "manager" | "employee",
+    role: "manager",
   };
 }
 
@@ -192,6 +190,9 @@ export async function getAuthUserProfile(userId: string): Promise<AuthUserProfil
     });
 
     if (user) {
+      if (user.role !== UserRole.MANAGER) {
+        throw new HttpError(403, "Manager access only");
+      }
       return toAuthUserProfile(user);
     }
   } catch (error) {
@@ -230,12 +231,12 @@ export async function registerUser(input: RegisterInput) {
         fullName: normalizedFullName,
         email: normalizedEmail,
         passwordHash,
-        role: input.role ?? UserRole.EMPLOYEE,
+        role: UserRole.MANAGER,
       },
     });
 
     return {
-      message: "User registered successfully",
+      message: "Manager registered successfully",
       ...buildAuthResponse(user),
     };
   } catch (error) {
@@ -266,6 +267,10 @@ export async function loginUser(input: LoginInput) {
     const user = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       throw new HttpError(401, "Invalid credentials");
+    }
+
+    if (user.role !== UserRole.MANAGER) {
+      throw new HttpError(403, "Manager access only");
     }
 
     const isValid = await verifyPassword(input.password, user.passwordHash);

@@ -51,7 +51,7 @@ describe("auth routes integration", () => {
 
     expect(registerResponse.status).toBe(201);
     await expect(registerResponse.json()).resolves.toMatchObject({
-      message: "User registered successfully",
+      message: "Manager registered successfully",
       token_type: "bearer",
     });
 
@@ -90,7 +90,7 @@ describe("auth routes integration", () => {
     expect(typeof loginData.access_token).toBe("string");
 
     const payload = verifyAccessToken(loginData.access_token);
-    expect(payload).toMatchObject({ user_id: "u-1", role: "employee" });
+    expect(payload).toMatchObject({ user_id: "u-1", role: "manager" });
 
     const invalidLoginResponse = await loginRoute.POST(
       new Request("http://localhost/api/auth/login", {

@@ -14,10 +14,27 @@ describe("jwt auth", () => {
 
   it("signs and verifies token with user_id and role", () => {
     process.env.JWT_SECRET = "test-secret";
-    const token = signAccessToken({ user_id: "u-1", role: "employee" });
+    const token = signAccessToken({ user_id: "u-1", role: "manager" });
 
     const payload = verifyAccessToken(token);
-    expect(payload).toEqual({ user_id: "u-1", role: "employee" });
+    expect(payload).toEqual({ user_id: "u-1", role: "manager" });
+  });
+
+  it("uses development fallback secret when JWT_SECRET is missing", () => {
+    delete process.env.JWT_SECRET;
+    process.env.NODE_ENV = "development";
+
+    const token = signAccessToken({ user_id: "u-2", role: "manager" });
+    const payload = verifyAccessToken(token);
+
+    expect(payload).toEqual({ user_id: "u-2", role: "manager" });
+  });
+
+  it("throws misconfigured error in production when JWT_SECRET is missing", () => {
+    delete process.env.JWT_SECRET;
+    process.env.NODE_ENV = "production";
+
+    expect(() => signAccessToken({ user_id: "u-3", role: "manager" })).toThrowError(HttpError);
   });
 
   it("uses development fallback secret when JWT_SECRET is missing", () => {
