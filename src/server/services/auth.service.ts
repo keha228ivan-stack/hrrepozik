@@ -45,13 +45,31 @@ function toRegistrationError(error: unknown): HttpError {
     if (error.code === "P1000" || error.code === "P1001" || error.code === "P1008") {
       return new HttpError(503, "Database unavailable");
     }
+
+    if (error.code === "P2021" || error.code === "P2022") {
+      return new HttpError(500, "Database schema is out of sync. Please run migrations.");
+    }
+
+    if (error.code === "P2000" || error.code === "P2006" || error.code === "P2011" || error.code === "P2012") {
+      return new HttpError(400, "Invalid registration data");
+    }
+
+    return new HttpError(500, `Registration failed (database error: ${error.code})`);
   }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
     return new HttpError(503, "Database unavailable");
   }
 
-  return new HttpError(500, "Unable to register user");
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    return new HttpError(400, "Invalid registration data");
+  }
+
+  if (error instanceof Error && error.message) {
+    return new HttpError(500, `Registration failed: ${error.message}`);
+  }
+
+  return new HttpError(500, "Registration failed due to an unexpected server error");
 }
 
 export async function registerUser(input: RegisterInput) {
@@ -89,11 +107,16 @@ export async function registerUser(input: RegisterInput) {
       token_type: "bearer",
     };
   } catch (error) {
+    const mappedError = toRegistrationError(error);
+
     console.error("Registration failed", {
       email: normalizedEmail,
+      mappedStatus: mappedError.statusCode,
+      mappedMessage: mappedError.message,
       error,
     });
-    throw toRegistrationError(error);
+
+    throw mappedError;
   }
 }
 

@@ -72,6 +72,22 @@ describe("auth.service", () => {
     ).rejects.toMatchObject<HttpError>({ statusCode: 503, message: "Database unavailable" });
   });
 
+
+
+  it("maps prisma schema mismatch to migration guidance", async () => {
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("missing table", { code: "P2021", clientVersion: "test" }));
+
+    await expect(
+      registerUser({
+        fullName: "Test User",
+        email: "user@test.dev",
+        password: "password123",
+      }),
+    ).rejects.toMatchObject<HttpError>({
+      statusCode: 500,
+      message: "Database schema is out of sync. Please run migrations.",
+    });
+  });
   it("hashes password and creates a new user", async () => {
     findUniqueMock.mockResolvedValueOnce(null);
     hashPasswordMock.mockResolvedValueOnce("hashed-password");
