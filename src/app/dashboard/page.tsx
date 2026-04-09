@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { managerStats } from "@/lib/mock-data";
 import { StatCard } from "@/components/ui/stat-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { useAuth } from "@/contexts/auth-context";
+import { useEffect, useState } from "react";
 
 const managerMenu = [
   { href: "/manager/employees", label: "Employee Management" },
@@ -15,7 +15,37 @@ const managerMenu = [
 ];
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
+  const [stats, setStats] = useState([
+    { title: "Всего сотрудников", value: "0", trend: "" },
+    { title: "Активных", value: "0", trend: "" },
+    { title: "Средний прогресс", value: "0%", trend: "" },
+    { title: "Пройдено курсов", value: "0", trend: "" },
+  ]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      const response = await authFetch("/api/reports/summary");
+      const data = (await response.json()) as {
+        summary?: {
+          totalEmployees: number;
+          activeEmployees: number;
+          avgProgress: number;
+          completedCourses: number;
+        };
+      };
+      if (!response.ok || !data.summary) return;
+
+      setStats([
+        { title: "Всего сотрудников", value: String(data.summary.totalEmployees), trend: "" },
+        { title: "Активных", value: String(data.summary.activeEmployees), trend: "" },
+        { title: "Средний прогресс", value: `${data.summary.avgProgress}%`, trend: "" },
+        { title: "Пройдено курсов", value: String(data.summary.completedCourses), trend: "" },
+      ]);
+    };
+
+    void loadStats();
+  }, [authFetch]);
 
   return (
     <div className="space-y-6">
@@ -32,7 +62,7 @@ export default function DashboardPage() {
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {managerStats.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.title} {...stat} />
         ))}
       </div>

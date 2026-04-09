@@ -133,7 +133,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authFetch = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       if (!token) {
-        throw new Error("Unauthorized");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       const response = await fetch(input, {
