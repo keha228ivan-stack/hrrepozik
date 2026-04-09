@@ -11,13 +11,20 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const payload = registerSchema.parse(await request.json());
-    const user = await registerUser(payload);
+    const rawPayload: unknown = await request.json();
+    const parsed = registerSchema.safeParse(rawPayload);
+
+    if (!parsed.success) {
+      return Response.json({ error: "Validation failed", details: parsed.error.issues }, { status: 400 });
+    }
+
+    const user = await registerUser(parsed.data);
     return Response.json(user, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return Response.json({ error: "Validation failed", details: error.issues }, { status: 400 });
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
+
     if (!(error instanceof HttpError)) {
       console.error("POST /api/auth/register failed", error);
     }

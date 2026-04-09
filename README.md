@@ -34,3 +34,18 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Environment variables
+
+Create a `.env.local` file before running auth flows:
+
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hr_management?schema=public"
+JWT_SECRET="change-this-to-a-long-random-string"
+BCRYPT_SALT_ROUNDS="12"
+```
+
+- `DATABASE_URL` is required by Prisma for registration/login queries.
+- `JWT_SECRET` is required to sign and verify access tokens.
+- `BCRYPT_SALT_ROUNDS` is optional; if set, this project expects a value between `10` and `15`.

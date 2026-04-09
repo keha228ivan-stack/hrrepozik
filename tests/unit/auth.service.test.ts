@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "@/server/http-error";
 import { loginUser, registerUser } from "@/server/services/auth.service";
@@ -42,7 +43,33 @@ describe("auth.service", () => {
         email: "user@test.dev",
         password: "password123",
       }),
-    ).rejects.toMatchObject<HttpError>({ statusCode: 409 });
+    ).rejects.toMatchObject<HttpError>({ statusCode: 409, message: "Email already in use" });
+  });
+
+  it("maps prisma duplicate constraint to 409", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+    hashPasswordMock.mockResolvedValueOnce("hashed-password");
+    createMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }));
+
+    await expect(
+      registerUser({
+        fullName: "Test User",
+        email: "user@test.dev",
+        password: "password123",
+      }),
+    ).rejects.toMatchObject<HttpError>({ statusCode: 409, message: "Email already in use" });
+  });
+
+  it("maps prisma connectivity errors to 503", async () => {
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
+
+    await expect(
+      registerUser({
+        fullName: "Test User",
+        email: "user@test.dev",
+        password: "password123",
+      }),
+    ).rejects.toMatchObject<HttpError>({ statusCode: 503, message: "Database unavailable" });
   });
 
   it("hashes password and creates a new user", async () => {
