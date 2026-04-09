@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireAuth } from "@/server/auth/guard";
 import { db } from "@/server/db";
-import { deleteFallbackCourse, listFallbackCourses, updateFallbackCourse } from "@/server/fallback-store";
+import { deleteFallbackCourse, getCourseAuditMap, listFallbackCourses, setCourseAudit, updateFallbackCourse } from "@/server/fallback-store";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
 const updateCourseSchema = z.object({
@@ -31,11 +31,22 @@ export async function GET(_request: Request, props: { params: Promise<{ id: stri
     try {
       const course = await db.course.findUnique({
         where: { id },
+        include: {
+          attachments: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              url: true,
+            },
+          },
+        },
       });
       if (!course) {
         throw new HttpError(404, "Course not found");
       }
-      return Response.json({ course });
+      const audit = getCourseAuditMap().get(id);
+      return Response.json({ course: { ...course, createdBy: audit?.createdBy ?? "manager", lastEditedBy: audit?.lastEditedBy ?? audit?.createdBy ?? "manager" } });
     } catch (error) {
       if (!isDatabaseUnavailable(error)) {
         throw error;
@@ -69,18 +80,26 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
         where: { id },
         data: parsed.data,
       });
-      return Response.json({ message: "Course updated successfully", course: updated });
+      setCourseAudit({
+        courseId: id,
+        lastEditedBy: payload.user_id,
+      });
+      return Response.json({ message: "Course updated successfully", course: { ...updated, lastEditedBy: payload.user_id } });
     } catch (error) {
       if (!isDatabaseUnavailable(error)) {
         throw error;
       }
-      const updatedFallback = updateFallbackCourse(id, parsed.data);
+      const updatedFallback = updateFallbackCourse(id, { ...parsed.data, lastEditedBy: payload.user_id });
       if (updatedFallback === "duplicate") {
         throw new HttpError(409, "Course with this title already exists");
       }
       if (!updatedFallback) {
         throw new HttpError(404, "Course not found");
       }
+      setCourseAudit({
+        courseId: id,
+        lastEditedBy: payload.user_id,
+      });
       return Response.json({ message: "Course updated successfully (temporary in-memory mode)", course: updatedFallback });
     }
   } catch (error) {

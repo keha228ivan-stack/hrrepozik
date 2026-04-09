@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ImagePlus, Loader2, PlayCircle, Upload, X } from "lucide-react";
+import { Loader2, PlayCircle, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { courseSchema, type CourseFormValues } from "@/lib/course-form-schema";
@@ -26,7 +26,6 @@ export function CourseForm() {
     },
   });
 
-  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [videoFiles, setVideoFiles] = useState<File[]>([]);
   const [materialFiles, setMaterialFiles] = useState<File[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -36,31 +35,27 @@ export function CourseForm() {
 
   const descriptionValue = form.watch("description");
 
-  const coverPreviewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
   const sampleVideo = videoFiles[0] ?? null;
   const sampleVideoPreviewUrl = useMemo(() => (sampleVideo ? URL.createObjectURL(sampleVideo) : null), [sampleVideo]);
-
-  useEffect(() => () => {
-    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
-  }, [coverPreviewUrl]);
+  const materialPreviews = useMemo(
+    () => materialFiles.map((material) => ({ name: material.name, url: URL.createObjectURL(material) })),
+    [materialFiles],
+  );
 
   useEffect(() => () => {
     if (sampleVideoPreviewUrl) URL.revokeObjectURL(sampleVideoPreviewUrl);
   }, [sampleVideoPreviewUrl]);
 
+  useEffect(() => () => {
+    for (const preview of materialPreviews) {
+      URL.revokeObjectURL(preview.url);
+    }
+  }, [materialPreviews]);
+
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null);
     setSubmitSuccess(null);
     setCreatedCourse(null);
-
-    if (!coverFile) {
-      setSubmitError("Загрузите обложку курса");
-      return;
-    }
-    if (!coverFile.type.startsWith("image/")) {
-      setSubmitError("Файл обложки должен быть изображением");
-      return;
-    }
 
     if (videoFiles.length === 0) {
       setSubmitError("Добавьте хотя бы одно видео");
@@ -78,7 +73,6 @@ export function CourseForm() {
     payload.append("duration", values.duration);
     payload.append("description", values.description);
     payload.append("instructor", values.instructor);
-    payload.append("cover", coverFile);
     for (const video of videoFiles) {
       payload.append("videos", video);
     }
@@ -101,7 +95,6 @@ export function CourseForm() {
     setSubmitSuccess(data.message ?? "Курс успешно создан");
     setCreatedCourse(data.course ?? null);
     form.reset();
-    setCoverFile(null);
     setVideoFiles([]);
     setMaterialFiles([]);
     setIsPreviewOpen(false);
@@ -155,18 +148,7 @@ export function CourseForm() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600 shadow-sm">
-            <span className="mb-2 flex items-center gap-2 font-medium"><ImagePlus className="h-4 w-4" />Обложка курса</span>
-            <input
-              className="w-full text-sm"
-              type="file"
-              accept="image/*"
-              onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)}
-            />
-            {coverFile ? <p className="mt-2 text-xs text-slate-500">{coverFile.name} · {fileSizeLabel(coverFile.size)}</p> : null}
-          </label>
-
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600 shadow-sm">
             <span className="mb-2 flex items-center gap-2 font-medium"><PlayCircle className="h-4 w-4" />Видео-материалы</span>
             <input
@@ -188,7 +170,13 @@ export function CourseForm() {
               multiple
               onChange={(event) => setMaterialFiles(Array.from(event.target.files ?? []))}
             />
-            {materialFiles.length ? <p className="mt-2 text-xs text-slate-500">Файлов: {materialFiles.length}</p> : null}
+            {materialFiles.length ? (
+              <div className="mt-2 space-y-1 text-xs text-slate-500">
+                {materialFiles.map((material) => (
+                  <p key={material.name}>{material.name} · {fileSizeLabel(material.size)}</p>
+                ))}
+              </div>
+            ) : null}
           </label>
         </div>
 
@@ -223,7 +211,6 @@ export function CourseForm() {
               </button>
             </div>
 
-            {coverPreviewUrl ? <img src={coverPreviewUrl} alt="Course cover preview" className="mb-4 h-52 w-full rounded-xl object-cover" /> : null}
             <h4 className="text-2xl font-semibold">{form.watch("title") || "Название курса"}</h4>
             <p className="mt-2 text-sm text-slate-600">{form.watch("category") || "Категория"} · {form.watch("duration") || "Длительность"} · {form.watch("level") || "Уровень"}</p>
             <p className="mt-1 text-sm text-slate-500">Преподаватель: {form.watch("instructor") || "Не указан"}</p>
@@ -233,6 +220,21 @@ export function CourseForm() {
               <div className="mt-5">
                 <p className="mb-2 text-sm font-medium text-slate-700">Пример видео</p>
                 <video controls className="w-full rounded-xl" src={sampleVideoPreviewUrl} />
+              </div>
+            ) : null}
+
+            {materialFiles.length ? (
+              <div className="mt-5">
+                <p className="mb-2 text-sm font-medium text-slate-700">Прикреплённые материалы</p>
+                <ul className="space-y-1 text-sm text-slate-600">
+                  {materialPreviews.map((preview) => (
+                    <li key={preview.name} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <a href={preview.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        {preview.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
           </div>

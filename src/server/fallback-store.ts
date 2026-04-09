@@ -21,6 +21,9 @@ type FallbackCourse = {
   instructor: string;
   status: CourseStatus;
   createdAt: string;
+  createdBy: string;
+  lastEditedBy: string;
+  updatedAt: string;
 };
 
 type FallbackStore = {
@@ -48,6 +51,13 @@ type FallbackStore = {
     createdAt: string;
     deadline: string;
   }[];
+  courseAudit: {
+    courseId: string;
+    createdBy: string;
+    lastEditedBy: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
 };
 
 const FALLBACK_STORE_PATH = join(process.cwd(), ".data", "fallback-store.json");
@@ -58,7 +68,7 @@ function ensureStoreFile() {
     mkdirSync(dir, { recursive: true });
   }
   if (!existsSync(FALLBACK_STORE_PATH)) {
-    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [], employees: [], assignments: [] }), "utf8");
+    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [], employees: [], assignments: [], courseAudit: [] }), "utf8");
   }
 }
 
@@ -72,9 +82,10 @@ function readStore(): FallbackStore {
       courses: parsed.courses ?? [],
       employees: parsed.employees ?? [],
       assignments: parsed.assignments ?? [],
+      courseAudit: parsed.courseAudit ?? [],
     };
   } catch {
-    return { managers: [], courses: [], employees: [], assignments: [] };
+    return { managers: [], courses: [], employees: [], assignments: [], courseAudit: [] };
   }
 }
 
@@ -118,6 +129,7 @@ export function addFallbackCourse(input: {
   duration: string;
   description: string;
   instructor: string;
+  actor: string;
 }) {
   const store = readStore();
   const normalizedTitle = input.title.toLowerCase();
@@ -135,6 +147,9 @@ export function addFallbackCourse(input: {
     instructor: input.instructor,
     status: CourseStatus.draft,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: input.actor,
+    lastEditedBy: input.actor,
   };
   store.courses.push(course);
   writeStore(store);
@@ -221,6 +236,7 @@ export function updateFallbackCourse(courseId: string, updates: Partial<{
   description: string;
   instructor: string;
   status: CourseStatus;
+  lastEditedBy: string;
 }>) {
   const store = readStore();
   const index = store.courses.findIndex((course) => course.id === courseId);
@@ -239,6 +255,8 @@ export function updateFallbackCourse(courseId: string, updates: Partial<{
   store.courses[index] = {
     ...store.courses[index],
     ...updates,
+    updatedAt: new Date().toISOString(),
+    lastEditedBy: updates.lastEditedBy ?? store.courses[index].lastEditedBy,
   };
   writeStore(store);
   return store.courses[index];
@@ -252,6 +270,37 @@ export function deleteFallbackCourse(courseId: string) {
   }
   store.courses = nextCourses;
   store.assignments = store.assignments.filter((assignment) => assignment.courseId !== courseId);
+  store.courseAudit = store.courseAudit.filter((item) => item.courseId !== courseId);
   writeStore(store);
   return true;
+}
+
+export function setCourseAudit(input: {
+  courseId: string;
+  createdBy?: string;
+  lastEditedBy: string;
+}) {
+  const store = readStore();
+  const current = store.courseAudit.find((item) => item.courseId === input.courseId);
+  if (!current) {
+    store.courseAudit.push({
+      courseId: input.courseId,
+      createdBy: input.createdBy ?? input.lastEditedBy,
+      lastEditedBy: input.lastEditedBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  } else {
+    current.lastEditedBy = input.lastEditedBy;
+    current.updatedAt = new Date().toISOString();
+    if (input.createdBy) {
+      current.createdBy = input.createdBy;
+    }
+  }
+  writeStore(store);
+}
+
+export function getCourseAuditMap() {
+  const store = readStore();
+  return new Map(store.courseAudit.map((item) => [item.courseId, item]));
 }

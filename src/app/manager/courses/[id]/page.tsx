@@ -14,8 +14,16 @@ type CourseDetail = {
   level: string;
   duration: string;
   instructor: string;
+  createdBy?: string;
+  lastEditedBy?: string;
   enrolledCount?: number;
   completedCount?: number;
+  attachments?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    url: string;
+  }>;
 };
 
 export default function ManagerCourseDetailPage() {
@@ -59,8 +67,28 @@ export default function ManagerCourseDetailPage() {
         <h2 className="mb-3 text-lg font-semibold">Прогресс курса</h2>
         <p className="mb-2 text-sm text-slate-600">Категория: {course.category} · Уровень: {course.level} · Длительность: {course.duration}</p>
         <p className="mb-4 text-sm text-slate-500">Инструктор: {course.instructor}</p>
+        <p className="mb-4 text-sm text-slate-500">Создал: {course.createdBy ?? "manager"} · Последний редактор: {course.lastEditedBy ?? course.createdBy ?? "manager"}</p>
         <ProgressBar value={progress} />
       </div>
+
+      {course.attachments?.length ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 text-lg font-semibold">Материалы курса</h3>
+          <div className="space-y-2">
+            {course.attachments.map((attachment) => (
+              <div key={attachment.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm">
+                <p className="font-medium text-slate-800">{attachment.name}</p>
+                <p className="mb-2 text-xs text-slate-500">{attachment.type}</p>
+                {attachment.type.startsWith("video/") ? (
+                  <video controls className="w-full rounded-lg" src={attachment.url} />
+                ) : (
+                  <a href={attachment.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Открыть файл</a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

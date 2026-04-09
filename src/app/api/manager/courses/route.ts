@@ -1,4 +1,5 @@
 import { requireAuth } from "@/server/auth/guard";
+import { setCourseAudit } from "@/server/fallback-store";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 import { createCourseFromFormData } from "@/server/services/course-create.service";
 
@@ -11,7 +12,14 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
 
-    const result = await createCourseFromFormData(formData);
+    const result = await createCourseFromFormData(formData, payload.user_id);
+    if (result.course?.id) {
+      setCourseAudit({
+        courseId: result.course.id,
+        createdBy: payload.user_id,
+        lastEditedBy: payload.user_id,
+      });
+    }
     return Response.json(result, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);

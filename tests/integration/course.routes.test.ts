@@ -78,7 +78,7 @@ describe("manager course routes integration", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Course cover image is required",
+      error: "At least one video file is required",
     });
   });
 });

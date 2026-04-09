@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { CourseStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { HttpError } from "@/server/http-error";
-import { addFallbackCourse, listFallbackCourses } from "@/server/fallback-store";
+import { addFallbackCourse, getCourseAuditMap, listFallbackCourses } from "@/server/fallback-store";
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -19,7 +19,7 @@ function isDatabaseUnavailable(error: unknown) {
       && (error.code === "P1000" || error.code === "P1001" || error.code === "P1008"));
 }
 
-export async function createCourseFromFormData(formData: FormData) {
+export async function createCourseFromFormData(formData: FormData, actor: string) {
   const title = readString(formData, "title");
   const category = readString(formData, "category");
   const level = readString(formData, "level");
@@ -29,14 +29,6 @@ export async function createCourseFromFormData(formData: FormData) {
 
   if (!title || !category || !level || !duration || !description || !instructor) {
     throw new HttpError(400, "All course fields are required");
-  }
-
-  const cover = asFile(formData.get("cover") ?? "");
-  if (!cover) {
-    throw new HttpError(400, "Course cover image is required");
-  }
-  if (!cover.type.startsWith("image/")) {
-    throw new HttpError(400, "Course cover must be an image file");
   }
 
   const videos = formData.getAll("videos").map(asFile).filter(Boolean);
@@ -75,11 +67,6 @@ export async function createCourseFromFormData(formData: FormData) {
         status: CourseStatus.draft,
         attachments: {
           create: [
-            {
-              name: cover.name,
-              type: cover.type || "image/*",
-              url: `uploads/covers/${Date.now()}-${cover.name}`,
-            },
             ...videos.map((video) => ({
               name: video.name,
               type: video.type || "video/*",
@@ -120,6 +107,7 @@ export async function createCourseFromFormData(formData: FormData) {
       duration,
       description,
       instructor,
+      actor,
     });
 
     if (!fallbackCourse) {
@@ -135,7 +123,7 @@ export async function createCourseFromFormData(formData: FormData) {
 
 export async function listCoursesWithFallback() {
   try {
-    return await db.course.findMany({
+    const courses = await db.course.findMany({
       orderBy: { title: "asc" },
       select: {
         id: true,
@@ -150,6 +138,12 @@ export async function listCoursesWithFallback() {
         status: true,
       },
     });
+    const audits = getCourseAuditMap();
+    return courses.map((course) => ({
+      ...course,
+      createdBy: audits.get(course.id)?.createdBy ?? "manager",
+      lastEditedBy: audits.get(course.id)?.lastEditedBy ?? audits.get(course.id)?.createdBy ?? "manager",
+    }));
   } catch (error) {
     if (!isDatabaseUnavailable(error)) {
       throw error;

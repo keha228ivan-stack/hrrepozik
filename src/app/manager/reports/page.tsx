@@ -47,7 +47,6 @@ export default function ManagerReportsPage() {
       <SectionHeader
         title="Отчёты"
         subtitle="Статистика завершения курсов, активности и общего прогресса сотрудников"
-        action={<div className="flex gap-2"><button className="rounded-xl border border-slate-200 px-3 py-2 text-sm">Экспорт PDF</button><button className="rounded-xl border border-slate-200 px-3 py-2 text-sm">Экспорт Excel</button></div>}
       />
 
       {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}

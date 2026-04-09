@@ -15,6 +15,8 @@ type ApiCourse = {
   duration: string;
   description: string;
   instructor: string;
+  createdBy?: string;
+  lastEditedBy?: string;
   status: "draft" | "published" | "archived";
   enrolledCount?: number;
   completedCount?: number;
@@ -155,6 +157,7 @@ export function ManagerCourseLibrary() {
                   <p>Длительность: {course.duration}</p>
                   <p>Участников: {enrolled}</p>
                 </div>
+                <p className="mb-2 text-xs text-slate-500">Создал: {course.createdBy ?? "manager"} · Последний редактор: {course.lastEditedBy ?? course.createdBy ?? "manager"}</p>
                 <ProgressBar value={progress} />
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
