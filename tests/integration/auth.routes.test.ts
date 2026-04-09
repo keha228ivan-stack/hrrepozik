@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyAccessToken } from "@/server/auth/jwt";
 
@@ -41,7 +42,7 @@ describe("auth routes integration", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: "Test User",
-          email: "user@test.dev",
+          email: " user@test.dev ",
           password: "password123",
           role: "EMPLOYEE",
         }),
@@ -50,7 +51,7 @@ describe("auth routes integration", () => {
 
     expect(registerResponse.status).toBe(201);
     await expect(registerResponse.json()).resolves.toMatchObject({
-      message: "User registered successfully",
+      message: "Manager registered successfully",
       token_type: "bearer",
     });
 
@@ -69,7 +70,7 @@ describe("auth routes integration", () => {
 
     expect(duplicateResponse.status).toBe(409);
     await expect(duplicateResponse.json()).resolves.toMatchObject({
-      error: "User with this email already exists",
+      error: "Email already in use",
     });
 
     const loginResponse = await loginRoute.POST(
@@ -89,7 +90,7 @@ describe("auth routes integration", () => {
     expect(typeof loginData.access_token).toBe("string");
 
     const payload = verifyAccessToken(loginData.access_token);
-    expect(payload).toMatchObject({ user_id: "u-1", role: "employee" });
+    expect(payload).toMatchObject({ user_id: "u-1", role: "manager" });
 
     const invalidLoginResponse = await loginRoute.POST(
       new Request("http://localhost/api/auth/login", {
@@ -141,6 +142,22 @@ describe("auth routes integration", () => {
 
     expect(withoutFullNameResponse.status).toBe(201);
 
+    const emptyFullNameResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "   ",
+          email: "blank-name@test.dev",
+          password: "123456",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(emptyFullNameResponse.status).toBe(201);
+
+
     const missingEmailResponse = await registerRoute.POST(
       new Request("http://localhost/api/auth/register", {
         method: "POST",
@@ -182,4 +199,69 @@ describe("auth routes integration", () => {
 
     expect(weakPasswordResponse.status).toBe(400);
   });
+
+  it("falls back to in-memory auth when database is unavailable", async () => {
+    vi.doMock("@/server/db", () => ({
+      db: {
+        user: {
+          findUnique: async () => {
+            throw new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" });
+          },
+          create: async () => {
+            throw new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" });
+          },
+        },
+      },
+    }));
+
+    const registerRoute = await import("@/app/api/auth/register/route");
+    const loginRoute = await import("@/app/api/auth/login/route");
+
+    const registerResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Offline User",
+          email: "offline@test.dev",
+          password: "password123",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(registerResponse.status).toBe(201);
+
+    const loginResponse = await loginRoute.POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "offline@test.dev",
+          password: "password123",
+        }),
+      }),
+    );
+
+    expect(loginResponse.status).toBe(200);
+  });
+
+
+  it("returns 400 for invalid JSON payload", async () => {
+    const registerRoute = await import("@/app/api/auth/register/route");
+
+    const invalidJsonRequest = new Request("http://localhost/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{invalid-json}",
+    });
+
+    const response = await registerRoute.POST(invalidJsonRequest);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid JSON payload",
+    });
+  });
+
 });

@@ -9,31 +9,19 @@ import { useAuth } from "@/contexts/auth-context";
 const managerMenu = [
   { href: "/manager/employees", label: "Employee Management" },
   { href: "/manager/training", label: "Training Programs" },
-  { href: "/manager/performance", label: "Performance Analytics" },
-  { href: "/manager/courses", label: "Course Management" },
-];
-
-const employeeMenu = [
-  { href: "/employee/my-courses", label: "My Courses" },
-  { href: "/employee/courses", label: "Course Catalog" },
-  { href: "/employee/tests", label: "Progress Tracker" },
-  { href: "/employee/certificates", label: "Certificates" },
+  { href: "/manager/courses/new", label: "Create Course" },
+  { href: "/manager/courses", label: "Course Library" },
+  { href: "/manager/reports", label: "Reports" },
 ];
 
 export default function DashboardPage() {
-  const { role, user } = useAuth();
-  const menu = role === "manager" ? managerMenu : employeeMenu;
-  const title = role === "manager" ? "Manager Dashboard" : "Employee Dashboard";
-  const subtitle =
-    role === "manager"
-      ? "Управление сотрудниками, курсами и показателями эффективности"
-      : "Ваши курсы, прогресс, тесты и сертификаты";
+  const { user } = useAuth();
 
   return (
     <div className="space-y-6">
-      <SectionHeader title={title} subtitle={`${subtitle}${user ? ` · ${user.fullName}` : ""}`} />
+      <SectionHeader title="Manager Dashboard" subtitle={`Управление сотрудниками, курсами и отчётами${user ? ` · ${user.fullName}` : ""}`} />
       <div className="grid gap-4 md:grid-cols-2">
-        {menu.map((item) => (
+        {managerMenu.map((item) => (
           <Link
             key={item.href}
             href={item.href}

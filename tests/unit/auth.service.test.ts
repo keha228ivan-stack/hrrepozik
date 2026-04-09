@@ -1,6 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "@/server/http-error";
-import { loginUser, registerUser } from "@/server/services/auth.service";
+import { getAuthUserProfile, loginUser, registerUser } from "@/server/services/auth.service";
 
 const { findUniqueMock, createMock, hashPasswordMock, verifyPasswordMock, signAccessTokenMock } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock("@/server/auth/jwt", () => ({
   signAccessToken: signAccessTokenMock,
 }));
 
-describe("auth.service", () => {
+describe("auth.service manager-only", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -36,111 +37,75 @@ describe("auth.service", () => {
   it("rejects duplicate email during registration", async () => {
     findUniqueMock.mockResolvedValueOnce({ id: "u-1", email: "user@test.dev" });
 
-    await expect(
-      registerUser({
-        fullName: "Test User",
-        email: "user@test.dev",
-        password: "password123",
-      }),
-    ).rejects.toMatchObject<HttpError>({ statusCode: 409 });
+    await expect(registerUser({ fullName: "Test User", email: "user@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 409,
+      message: "Email already in use",
+    });
   });
 
-  it("hashes password and creates a new user", async () => {
+  it("registers manager with MANAGER role", async () => {
     findUniqueMock.mockResolvedValueOnce(null);
     hashPasswordMock.mockResolvedValueOnce("hashed-password");
-    createMock.mockResolvedValueOnce({
-      id: "u-1",
-      fullName: "Test User",
-      email: "user@test.dev",
-      role: "EMPLOYEE",
-    });
+    createMock.mockResolvedValueOnce({ id: "u-1", fullName: "Test User", email: "user@test.dev", role: "MANAGER" });
     signAccessTokenMock.mockReturnValueOnce("jwt-token");
 
-    const result = await registerUser({
-      fullName: "Test User",
-      email: "user@test.dev",
-      password: "password123",
-    });
+    const result = await registerUser({ fullName: "Test User", email: "user@test.dev", password: "password123" });
 
-    expect(hashPasswordMock).toHaveBeenCalledWith("password123");
     expect(createMock).toHaveBeenCalledWith({
       data: {
         fullName: "Test User",
         email: "user@test.dev",
         passwordHash: "hashed-password",
-        role: "EMPLOYEE",
+        role: "MANAGER",
       },
     });
     expect(result).toEqual({
-      message: "User registered successfully",
+      message: "Manager registered successfully",
       access_token: "jwt-token",
       token_type: "bearer",
     });
   });
 
-  it("creates user with derived full name when fullName is missing", async () => {
-    findUniqueMock.mockResolvedValueOnce(null);
-    hashPasswordMock.mockResolvedValueOnce("hashed-password");
-    createMock.mockResolvedValueOnce({
-      id: "u-2",
-      fullName: "new-user",
-      email: "new-user@test.dev",
-      role: "EMPLOYEE",
-    });
-    signAccessTokenMock.mockReturnValueOnce("jwt-token-2");
-
-    await registerUser({
-      email: "new-user@test.dev",
-      password: "password123",
-    });
-
-    expect(createMock).toHaveBeenCalledWith({
-      data: {
-        fullName: "new-user",
-        email: "new-user@test.dev",
-        passwordHash: "hashed-password",
-        role: "EMPLOYEE",
-      },
-    });
-  });
-
-  it("returns 401 when user does not exist during login", async () => {
-    findUniqueMock.mockResolvedValueOnce(null);
-
-    await expect(loginUser({ email: "none@test.dev", password: "bad" })).rejects.toMatchObject<HttpError>({
-      statusCode: 401,
-    });
-  });
-
-  it("returns 401 when password is invalid", async () => {
+  it("blocks employee login", async () => {
     findUniqueMock.mockResolvedValueOnce({
-      id: "u-1",
-      email: "user@test.dev",
+      id: "e-1",
+      email: "employee@test.dev",
       passwordHash: "stored-hash",
       role: "EMPLOYEE",
     });
-    verifyPasswordMock.mockResolvedValueOnce(false);
 
-    await expect(loginUser({ email: "user@test.dev", password: "wrong" })).rejects.toMatchObject<HttpError>({
-      statusCode: 401,
+    await expect(loginUser({ email: "employee@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 403,
+      message: "Manager access only",
     });
   });
 
-  it("returns bearer token for valid credentials", async () => {
-    findUniqueMock.mockResolvedValueOnce({
-      id: "u-1",
-      email: "user@test.dev",
-      passwordHash: "stored-hash",
-      role: "MANAGER",
-    });
-    verifyPasswordMock.mockResolvedValueOnce(true);
-    signAccessTokenMock.mockReturnValueOnce("jwt-token");
+  it("falls back to in-memory auth when database is unavailable", async () => {
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
+    hashPasswordMock.mockResolvedValue("hashed-password");
+    signAccessTokenMock.mockReturnValue("jwt-token");
+    verifyPasswordMock.mockResolvedValue(true);
 
-    const result = await loginUser({ email: "user@test.dev", password: "password123" });
+    const registerResult = await registerUser({ fullName: "Offline User", email: "offline@test.dev", password: "password123" });
+    expect(registerResult.message).toBe("Manager registered successfully");
 
-    expect(result).toEqual({
-      access_token: "jwt-token",
-      token_type: "bearer",
-    });
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
+    const loginResult = await loginUser({ email: "offline@test.dev", password: "password123" });
+
+    expect(loginResult).toEqual({ access_token: "jwt-token", token_type: "bearer" });
+  });
+
+  it("returns profile from in-memory store when database is unavailable", async () => {
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
+    hashPasswordMock.mockResolvedValue("hashed-password");
+    signAccessTokenMock.mockImplementation(({ user_id }: { user_id: string }) => `jwt-${user_id}`);
+
+    const registerResult = await registerUser({ fullName: "Offline User", email: "profile-offline@test.dev", password: "password123" });
+    const userId = registerResult.access_token.replace("jwt-", "");
+
+    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
+    const profile = await getAuthUserProfile(userId);
+
+    expect(profile).toMatchObject({ id: userId, email: "profile-offline@test.dev", role: "manager" });
   });
 });

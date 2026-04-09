@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/auth-context";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, role, logout } = useAuth();
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
   useEffect(() => {
@@ -21,10 +21,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (isAuthenticated && role !== "manager") {
+      logout();
+      router.replace("/login");
+      return;
+    }
+
     if (isAuthenticated && isAuthPage) {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isAuthPage, isLoading, router]);
+  }, [isAuthenticated, isAuthPage, isLoading, logout, role, router]);
 
   if (isLoading) {
     return (
