@@ -14,6 +14,28 @@ const createEmployeeSchema = z.object({
   status: z.nativeEnum(EmployeeStatus).default(EmployeeStatus.onboarding),
 });
 
+type InMemoryEmployee = {
+  id: string;
+  fullName: string;
+  email: string;
+  departmentId: string | null;
+  employeeProfile: {
+    position: string;
+    status: EmployeeStatus;
+    performance: number;
+    completedCourses: number;
+    inProgressCourses: number;
+  };
+};
+
+const inMemoryEmployees = new Map<string, InMemoryEmployee>();
+
+function isDatabaseUnavailable(error: unknown) {
+  return error instanceof Prisma.PrismaClientInitializationError
+    || (error instanceof Prisma.PrismaClientKnownRequestError
+      && (error.code === "P1000" || error.code === "P1001" || error.code === "P1008"));
+}
+
 export async function GET() {
   try {
     const payload = await requireAuth();
@@ -49,6 +71,13 @@ export async function GET() {
 
     return Response.json({ employees, departments });
   } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      return Response.json({
+        employees: Array.from(inMemoryEmployees.values()),
+        departments: [],
+        warning: "Database unavailable, fallback mode enabled",
+      });
+    }
     return toErrorResponse(error);
   }
 }
@@ -66,59 +95,89 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = parsed.data.email.toLowerCase();
-    const existing = await db.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
-    if (existing) {
-      throw new HttpError(409, "Employee with this email already exists");
-    }
-
-    const generatedPassword = randomUUID();
-    const passwordHash = await hashPassword(generatedPassword);
-
-    if (parsed.data.departmentId) {
-      const department = await db.department.findUnique({
-        where: { id: parsed.data.departmentId },
-        select: { id: true },
-      });
-      if (!department) {
-        throw new HttpError(400, "Selected department does not exist");
+    try {
+      const existing = await db.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
+      if (existing) {
+        throw new HttpError(409, "Employee with this email already exists");
       }
-    }
 
-    const employee = await db.user.create({
-      data: {
+      const generatedPassword = randomUUID();
+      const passwordHash = await hashPassword(generatedPassword);
+
+      if (parsed.data.departmentId) {
+        const department = await db.department.findUnique({
+          where: { id: parsed.data.departmentId },
+          select: { id: true },
+        });
+        if (!department) {
+          throw new HttpError(400, "Selected department does not exist");
+        }
+      }
+
+      const employee = await db.user.create({
+        data: {
+          fullName: parsed.data.fullName,
+          email: normalizedEmail,
+          passwordHash,
+          role: UserRole.EMPLOYEE,
+          departmentId: parsed.data.departmentId || null,
+          employeeProfile: {
+            create: {
+              position: parsed.data.position,
+              status: parsed.data.status,
+              performance: 0,
+              completedCourses: 0,
+              inProgressCourses: 0,
+            },
+          },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          departmentId: true,
+          employeeProfile: {
+            select: {
+              position: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      return Response.json({
+        message: "Employee added successfully",
+        employee,
+      }, { status: 201 });
+    } catch (error) {
+      if (!isDatabaseUnavailable(error)) {
+        throw error;
+      }
+
+      if (inMemoryEmployees.has(normalizedEmail)) {
+        throw new HttpError(409, "Employee with this email already exists");
+      }
+
+      const employee: InMemoryEmployee = {
+        id: randomUUID(),
         fullName: parsed.data.fullName,
         email: normalizedEmail,
-        passwordHash,
-        role: UserRole.EMPLOYEE,
         departmentId: parsed.data.departmentId || null,
         employeeProfile: {
-          create: {
-            position: parsed.data.position,
-            status: parsed.data.status,
-            performance: 0,
-            completedCourses: 0,
-            inProgressCourses: 0,
-          },
+          position: parsed.data.position,
+          status: parsed.data.status,
+          performance: 0,
+          completedCourses: 0,
+          inProgressCourses: 0,
         },
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        departmentId: true,
-        employeeProfile: {
-          select: {
-            position: true,
-            status: true,
-          },
-        },
-      },
-    });
+      };
+      inMemoryEmployees.set(normalizedEmail, employee);
 
-    return Response.json({
-      message: "Employee added successfully",
-      employee,
-    }, { status: 201 });
+      return Response.json({
+        message: "Employee added successfully (temporary in-memory mode)",
+        employee,
+      }, { status: 201 });
+    }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return Response.json({ error: "Invalid department selected" }, { status: 400 });

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { CourseStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { HttpError } from "@/server/http-error";
@@ -9,6 +11,14 @@ function readString(formData: FormData, key: string) {
 
 function asFile(value: FormDataEntryValue) {
   return value instanceof File ? value : null;
+}
+
+const inMemoryCourses = new Map<string, { id: string; title: string; category: string; level: string; duration: string; instructor: string; status: CourseStatus }>();
+
+function isDatabaseUnavailable(error: unknown) {
+  return error instanceof Prisma.PrismaClientInitializationError
+    || (error instanceof Prisma.PrismaClientKnownRequestError
+      && (error.code === "P1000" || error.code === "P1001" || error.code === "P1008"));
 }
 
 export async function createCourseFromFormData(formData: FormData) {
@@ -47,56 +57,83 @@ export async function createCourseFromFormData(formData: FormData) {
     throw new HttpError(400, "One or more materials have unsupported format");
   }
 
-  const existing = await db.course.findFirst({
-    where: { title },
-    select: { id: true },
-  });
-  if (existing) {
-    throw new HttpError(409, "Course with this title already exists");
-  }
+  try {
+    const existing = await db.course.findFirst({
+      where: { title },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new HttpError(409, "Course with this title already exists");
+    }
 
-  const createdCourse = await db.course.create({
-    data: {
+    const createdCourse = await db.course.create({
+      data: {
+        title,
+        category,
+        level,
+        duration,
+        description,
+        instructor,
+        status: CourseStatus.draft,
+        attachments: {
+          create: [
+            {
+              name: cover.name,
+              type: cover.type || "image/*",
+              url: `uploads/covers/${Date.now()}-${cover.name}`,
+            },
+            ...videos.map((video) => ({
+              name: video.name,
+              type: video.type || "video/*",
+              url: `uploads/videos/${Date.now()}-${video.name}`,
+            })),
+            ...materials.map((material) => ({
+              name: material.name,
+              type: material.type || "application/octet-stream",
+              url: `uploads/materials/${Date.now()}-${material.name}`,
+            })),
+          ],
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        level: true,
+        duration: true,
+        instructor: true,
+        status: true,
+      },
+    });
+
+    return {
+      message: "Course created successfully",
+      course: createdCourse,
+    };
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) {
+      throw error;
+    }
+
+    const normalizedTitle = title.toLowerCase();
+    if (inMemoryCourses.has(normalizedTitle)) {
+      throw new HttpError(409, "Course with this title already exists");
+    }
+
+    const fallbackCourse = {
+      id: randomUUID(),
       title,
       category,
       level,
       duration,
-      description,
       instructor,
       status: CourseStatus.draft,
-      attachments: {
-        create: [
-          {
-            name: cover.name,
-            type: cover.type || "image/*",
-            url: `uploads/covers/${Date.now()}-${cover.name}`,
-          },
-          ...videos.map((video) => ({
-            name: video.name,
-            type: video.type || "video/*",
-            url: `uploads/videos/${Date.now()}-${video.name}`,
-          })),
-          ...materials.map((material) => ({
-            name: material.name,
-            type: material.type || "application/octet-stream",
-            url: `uploads/materials/${Date.now()}-${material.name}`,
-          })),
-        ],
-      },
-    },
-    select: {
-      id: true,
-      title: true,
-      category: true,
-      level: true,
-      duration: true,
-      instructor: true,
-      status: true,
-    },
-  });
+    };
+    inMemoryCourses.set(normalizedTitle, fallbackCourse);
 
-  return {
-    message: "Course created successfully",
-    course: createdCourse,
-  };
+    return {
+      message: "Course created successfully (temporary in-memory mode)",
+      course: fallbackCourse,
+    };
+  }
 }
