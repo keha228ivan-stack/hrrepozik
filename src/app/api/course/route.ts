@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-
     const result = await createCourseFromFormData(formData);
+
     return Response.json(result, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
