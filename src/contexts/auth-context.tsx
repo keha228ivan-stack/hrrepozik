@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-type Role = "manager" | "employee";
+type Role = "manager";
 
 type AuthUser = {
   id: string;
@@ -25,7 +25,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   role: Role | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (fullName: string, email: string, password: string, role: Role) => Promise<void>;
+  register: (fullName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
@@ -105,16 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       persistToken(data.access_token);
     },
-    [],
+    [fetchCurrentUser],
   );
 
   const register = useCallback(
-    async (fullName: string, email: string, password: string, role: Role) => {
-      const backendRole = role === "manager" ? "MANAGER" : "EMPLOYEE";
+    async (fullName: string, email: string, password: string) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password, role: backendRole }),
+        body: JSON.stringify({ fullName, email, password }),
       });
 
       if (!response.ok) {
@@ -128,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       persistToken(data.access_token);
     },
-    [],
+    [fetchCurrentUser],
   );
 
   const authFetch = useCallback(

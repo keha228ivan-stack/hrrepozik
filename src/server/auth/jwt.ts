@@ -3,15 +3,28 @@ import { HttpError } from "@/server/http-error";
 
 export type AuthTokenPayload = {
   user_id: string;
-  role?: "manager" | "employee";
+  role?: "manager";
 };
+
+const DEV_FALLBACK_JWT_SECRET = "dev-insecure-jwt-secret";
+let fallbackSecretWarned = false;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret) {
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
     throw new HttpError(500, "Authentication is misconfigured");
   }
-  return secret;
+
+  if (!fallbackSecretWarned) {
+    fallbackSecretWarned = true;
+    console.warn("JWT_SECRET is missing. Using insecure development fallback secret.");
+  }
+
+  return DEV_FALLBACK_JWT_SECRET;
 }
 
 export function signAccessToken(payload: AuthTokenPayload): string {
@@ -26,7 +39,7 @@ export function verifyAccessToken(token: string): AuthTokenPayload {
     }
 
     const role = decoded.role;
-    const normalizedRole = role === "manager" || role === "employee" ? role : undefined;
+    const normalizedRole = role === "manager" ? role : undefined;
 
     return {
       user_id: decoded.user_id,
