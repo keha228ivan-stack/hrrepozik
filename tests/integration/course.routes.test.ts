@@ -13,6 +13,7 @@ describe("manager course routes integration", () => {
     vi.doMock("@/server/db", () => ({
       db: {
         course: {
+          findFirst: async () => null,
           create: async () => ({ id: "c-1", title: "React Advanced", status: "draft" }),
         },
       },
@@ -52,6 +53,7 @@ describe("manager course routes integration", () => {
     vi.doMock("@/server/db", () => ({
       db: {
         course: {
+          findFirst: async () => null,
           create: async () => ({ id: "c-1", title: "React Advanced", status: "draft" }),
         },
       },
@@ -76,7 +78,7 @@ describe("manager course routes integration", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Course cover image is required",
+      error: "At least one video file is required",
     });
   });
 });

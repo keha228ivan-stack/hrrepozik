@@ -11,7 +11,6 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-
     const result = await createCourseFromFormData(formData, payload.user_id);
     if (result.course?.id) {
       setCourseAudit({
@@ -20,6 +19,7 @@ export async function POST(request: Request) {
         lastEditedBy: payload.user_id,
       });
     }
+
     return Response.json(result, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
