@@ -41,7 +41,7 @@ describe("auth routes integration", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: "Test User",
-          email: "user@test.dev",
+          email: " user@test.dev ",
           password: "password123",
           role: "EMPLOYEE",
         }),
@@ -140,6 +140,22 @@ describe("auth routes integration", () => {
     );
 
     expect(withoutFullNameResponse.status).toBe(201);
+
+    const emptyFullNameResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "   ",
+          email: "blank-name@test.dev",
+          password: "123456",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(emptyFullNameResponse.status).toBe(201);
+
 
     const missingEmailResponse = await registerRoute.POST(
       new Request("http://localhost/api/auth/register", {

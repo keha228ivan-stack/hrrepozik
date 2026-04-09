@@ -3,8 +3,8 @@ import { loginUser } from "@/server/services/auth.service";
 import { toErrorResponse } from "@/server/http-error";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().trim().email(),
+  password: z.string().trim().min(1),
 });
 
 export async function POST(request: Request) {

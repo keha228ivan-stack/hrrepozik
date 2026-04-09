@@ -3,7 +3,13 @@ import { registerUser } from "@/server/services/auth.service";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
 const registerSchema = z.object({
-  fullName: z.string().trim().min(2).optional(),
+  fullName: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine((value) => value === undefined || value.length >= 2, {
+      message: "Full name must be at least 2 characters long",
+    }),
   email: z.string().trim().email(),
   password: z.string().min(6),
   role: z.enum(["MANAGER", "EMPLOYEE"]).optional(),
