@@ -2,20 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ImagePlus, Loader2, PlayCircle, Upload, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-const courseSchema = z.object({
-  title: z.string().min(3, "Введите название курса"),
-  category: z.string().min(2, "Выберите категорию"),
-  level: z.string().min(2, "Выберите уровень"),
-  duration: z.string().min(1, "Укажите длительность"),
-  description: z.string().min(10, "Добавьте описание"),
-  instructor: z.string().min(3, "Укажите преподавателя"),
-});
-
-type CourseFormValues = z.infer<typeof courseSchema>;
+import { courseSchema, type CourseFormValues } from "@/lib/course-form-schema";
 
 function fileSizeLabel(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -41,23 +30,42 @@ export function CourseForm() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [createdCourse, setCreatedCourse] = useState<{ id: string; title: string; status: string; category?: string; level?: string; duration?: string; instructor?: string } | null>(null);
 
   const descriptionValue = form.watch("description");
 
   const coverPreviewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
   const sampleVideo = videoFiles[0] ?? null;
+  const sampleVideoPreviewUrl = useMemo(() => (sampleVideo ? URL.createObjectURL(sampleVideo) : null), [sampleVideo]);
+
+  useEffect(() => () => {
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+  }, [coverPreviewUrl]);
+
+  useEffect(() => () => {
+    if (sampleVideoPreviewUrl) URL.revokeObjectURL(sampleVideoPreviewUrl);
+  }, [sampleVideoPreviewUrl]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null);
     setSubmitSuccess(null);
+    setCreatedCourse(null);
 
     if (!coverFile) {
       setSubmitError("Загрузите обложку курса");
       return;
     }
+    if (!coverFile.type.startsWith("image/")) {
+      setSubmitError("Файл обложки должен быть изображением");
+      return;
+    }
 
     if (videoFiles.length === 0) {
       setSubmitError("Добавьте хотя бы одно видео");
+      return;
+    }
+    if (videoFiles.some((video) => !video.type.startsWith("video/"))) {
+      setSubmitError("Разрешены только видео-файлы");
       return;
     }
 
@@ -76,12 +84,12 @@ export function CourseForm() {
       payload.append("materials", material);
     }
 
-    const response = await fetch("/api/manager/courses", {
+    const response = await fetch("/api/courses", {
       method: "POST",
       body: payload,
     });
 
-    const data = (await response.json()) as { error?: string; message?: string };
+    const data = (await response.json()) as { error?: string; message?: string; course?: { id: string; title: string; status: string; category?: string; level?: string; duration?: string; instructor?: string } };
 
     if (!response.ok) {
       setSubmitError(data.error ?? "Не удалось создать курс");
@@ -89,6 +97,7 @@ export function CourseForm() {
     }
 
     setSubmitSuccess(data.message ?? "Курс успешно создан");
+    setCreatedCourse(data.course ?? null);
     form.reset();
     setCoverFile(null);
     setVideoFiles([]);
@@ -183,6 +192,13 @@ export function CourseForm() {
 
         {submitError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p> : null}
         {submitSuccess ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{submitSuccess}</p> : null}
+        {createdCourse ? (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <p className="font-semibold">Созданный курс: {createdCourse.title}</p>
+            <p className="mt-1">Статус: {createdCourse.status}</p>
+            <p className="mt-1">Преподаватель: {createdCourse.instructor ?? "—"}</p>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-3">
           <button type="submit" disabled={form.formState.isSubmitting} className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70">
@@ -211,10 +227,10 @@ export function CourseForm() {
             <p className="mt-1 text-sm text-slate-500">Преподаватель: {form.watch("instructor") || "Не указан"}</p>
             <div className="prose prose-sm mt-4 max-w-none rounded-xl border border-slate-100 bg-slate-50 p-4" dangerouslySetInnerHTML={{ __html: descriptionValue || "<p>Описание появится здесь</p>" }} />
 
-            {sampleVideo ? (
+            {sampleVideoPreviewUrl ? (
               <div className="mt-5">
                 <p className="mb-2 text-sm font-medium text-slate-700">Пример видео</p>
-                <video controls className="w-full rounded-xl" src={URL.createObjectURL(sampleVideo)} />
+                <video controls className="w-full rounded-xl" src={sampleVideoPreviewUrl} />
               </div>
             ) : null}
           </div>
