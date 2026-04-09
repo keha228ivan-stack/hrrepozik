@@ -10,3 +10,18 @@ body {
   color: #0f172a;
   font-family: var(--font-geist-sans), Arial, sans-serif;
 }
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.page-enter-from-left {
+  animation: slideInFromLeft 320ms ease-out;
+}
