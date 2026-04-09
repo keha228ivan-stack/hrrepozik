@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-    const result = await createCourseFromFormData(formData, payload.user_id);
+    const result = await createCourseFromFormData(formData);
     if (result.course?.id) {
       setCourseAudit({
         courseId: result.course.id,

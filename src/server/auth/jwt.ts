@@ -9,14 +9,21 @@ export type AuthTokenPayload = {
 const DEV_FALLBACK_JWT_SECRET = "dev-insecure-jwt-secret";
 let fallbackSecretWarned = false;
 
+function isReleaseEnvironment() {
+  return process.env.NODE_ENV === "production"
+    || process.env.APP_ENV === "production"
+    || process.env.APP_ENV === "release"
+    || process.env.VERCEL_ENV === "production";
+}
+
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET?.trim();
   if (secret) {
     return secret;
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new HttpError(500, "Authentication is misconfigured");
+  if (isReleaseEnvironment()) {
+    throw new HttpError(500, "JWT_SECRET is required in release environment");
   }
 
   if (!fallbackSecretWarned) {

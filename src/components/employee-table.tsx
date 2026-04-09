@@ -25,7 +25,14 @@ type DepartmentOption = {
   name: string;
 };
 
-export function EmployeeTable() {
+type EmployeeTableProps = {
+  query: string;
+  departmentId: string;
+  status: string;
+  onDepartmentsChange: (departments: DepartmentOption[]) => void;
+};
+
+export function EmployeeTable({ query, departmentId, status, onDepartmentsChange }: EmployeeTableProps) {
   const { authFetch } = useAuth();
   const [rows, setRows] = useState<EmployeeRow[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
@@ -58,13 +65,15 @@ export function EmployeeTable() {
         return;
       }
       setRows(data.employees ?? []);
-      setDepartments(data.departments ?? []);
+      const receivedDepartments = data.departments ?? [];
+      setDepartments(receivedDepartments);
+      onDepartmentsChange(receivedDepartments);
     } catch {
       setError("Сетевая ошибка при загрузке сотрудников. Проверьте интернет и попробуйте снова.");
     } finally {
       setIsLoading(false);
     }
-  }, [authFetch]);
+  }, [authFetch, onDepartmentsChange]);
 
   useEffect(() => {
     void loadEmployees();
@@ -120,10 +129,29 @@ export function EmployeeTable() {
     }
   };
 
-  const renderedRows = useMemo(() => rows.map((row) => {
-    const department = departments.find((dep) => dep.id === row.departmentId);
-    return { row, department };
-  }), [departments, rows]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const renderedRows = useMemo(() => rows
+    .filter((row) => {
+      if (departmentId && row.departmentId !== departmentId) {
+        return false;
+      }
+
+      const rowStatus = row.employeeProfile?.status ?? "inactive";
+      if (status && rowStatus !== status) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchable = [row.fullName, row.email, row.employeeProfile?.position ?? ""].join(" ").toLowerCase();
+      return searchable.includes(normalizedQuery);
+    })
+    .map((row) => {
+      const department = departments.find((dep) => dep.id === row.departmentId);
+      return { row, department };
+    }), [departmentId, departments, normalizedQuery, rows, status]);
 
   return (
     <div className="space-y-4">
@@ -174,6 +202,11 @@ export function EmployeeTable() {
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
                 </tr>
               ))}
+              {!renderedRows.length ? (
+                <tr className="border-t border-slate-100 text-sm">
+                  <td className="px-4 py-6 text-slate-500" colSpan={7}>Сотрудники по выбранным фильтрам не найдены.</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

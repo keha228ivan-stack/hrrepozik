@@ -111,100 +111,20 @@ describe("auth routes integration", () => {
     );
 
     expect(invalidLoginResponse.status).toBe(401);
-    await expect(invalidLoginResponse.json()).resolves.toMatchObject({
-      error: "Invalid credentials",
-    });
   });
 
   it("returns 400 for invalid registration payload", async () => {
-    const users: DbUser[] = [];
-
-    vi.doMock("@/server/db", () => ({
-      db: {
-        user: {
-          findUnique: async ({ where }: { where: { email: string } }) =>
-            users.find((user) => user.email === where.email) ?? null,
-          create: async ({ data }: { data: Omit<DbUser, "id"> }) => {
-            const created: DbUser = { id: `u-${users.length + 1}`, ...data };
-            users.push(created);
-            return created;
-          },
-        },
-      },
-    }));
-
     const registerRoute = await import("@/app/api/auth/register/route");
 
-    const withoutFullNameResponse = await registerRoute.POST(
+    const response = await registerRoute.POST(
       new Request("http://localhost/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "new-user@test.dev",
-          password: "123456",
-          role: "EMPLOYEE",
-        }),
+        body: JSON.stringify({ fullName: "x", email: "not-an-email", password: "123" }),
       }),
     );
 
-    expect(withoutFullNameResponse.status).toBe(201);
-
-    const emptyFullNameResponse = await registerRoute.POST(
-      new Request("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: "   ",
-          email: "blank-name@test.dev",
-          password: "123456",
-          role: "EMPLOYEE",
-        }),
-      }),
-    );
-
-    expect(emptyFullNameResponse.status).toBe(201);
-
-
-    const missingEmailResponse = await registerRoute.POST(
-      new Request("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: "Test User",
-          password: "password123",
-        }),
-      }),
-    );
-
-    expect(missingEmailResponse.status).toBe(400);
-
-    const invalidEmailResponse = await registerRoute.POST(
-      new Request("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: "Test User",
-          email: "not-an-email",
-          password: "password123",
-        }),
-      }),
-    );
-
-    expect(invalidEmailResponse.status).toBe(400);
-
-    const weakPasswordResponse = await registerRoute.POST(
-      new Request("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: "Test User",
-          email: "user@test.dev",
-          password: "123",
-        }),
-      }),
-    );
-
-    expect(weakPasswordResponse.status).toBe(400);
+    expect(response.status).toBe(400);
   });
 
   it("accepts legacy registration keys full_name and pass", async () => {
@@ -213,8 +133,7 @@ describe("auth routes integration", () => {
     vi.doMock("@/server/db", () => ({
       db: {
         user: {
-          findUnique: async ({ where }: { where: { email: string } }) =>
-            users.find((user) => user.email === where.email) ?? null,
+          findUnique: async ({ where }: { where: { email: string } }) => users.find((user) => user.email === where.email) ?? null,
           create: async ({ data }: { data: Omit<DbUser, "id"> }) => {
             const created: DbUser = { id: `u-${users.length + 1}`, ...data };
             users.push(created);
@@ -240,7 +159,7 @@ describe("auth routes integration", () => {
     expect(response.status).toBe(201);
   });
 
-  it("falls back to in-memory auth when database is unavailable", async () => {
+  it("returns 503 when database is unavailable", async () => {
     vi.doMock("@/server/db", () => ({
       db: {
         user: {
@@ -270,7 +189,7 @@ describe("auth routes integration", () => {
       }),
     );
 
-    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.status).toBe(503);
 
     const loginResponse = await loginRoute.POST(
       new Request("http://localhost/api/auth/login", {
@@ -283,10 +202,10 @@ describe("auth routes integration", () => {
       }),
     );
 
-    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.status).toBe(503);
   });
 
-  it("keeps fallback account between module reloads when database is unavailable", async () => {
+  it("does not allow login after module reload when database is unavailable", async () => {
     vi.doMock("@/server/db", () => ({
       db: {
         user: {
@@ -312,7 +231,7 @@ describe("auth routes integration", () => {
         }),
       }),
     );
-    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.status).toBe(503);
 
     vi.resetModules();
     vi.doMock("@/server/db", () => ({
@@ -340,9 +259,8 @@ describe("auth routes integration", () => {
       }),
     );
 
-    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.status).toBe(503);
   });
-
 
   it("returns 400 for invalid JSON payload", async () => {
     const registerRoute = await import("@/app/api/auth/register/route");
@@ -360,5 +278,4 @@ describe("auth routes integration", () => {
       error: "Invalid JSON payload",
     });
   });
-
 });

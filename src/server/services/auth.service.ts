@@ -1,10 +1,8 @@
-import { Prisma } from "@prisma/client";
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { db } from "@/server/db";
 import { signAccessToken } from "@/server/auth/jwt";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { HttpError } from "@/server/http-error";
-import { addFallbackManager, findFallbackManagerByEmail, findFallbackManagerById } from "@/server/fallback-store";
 
 type RegisterInput = {
   fullName?: string;
@@ -17,22 +15,12 @@ type LoginInput = {
   password: string;
 };
 
-type InMemoryUser = {
-  id: string;
-  fullName: string;
-  email: string;
-  passwordHash: string;
-  role: UserRole.MANAGER;
-};
-
 export type AuthUserProfile = {
   id: string;
   fullName: string;
   email: string;
   role: "manager";
 };
-
-const inMemoryUsers = new Map<string, InMemoryUser>();
 
 function validateRegisterInput(input: RegisterInput) {
   if (!input.email || !input.password) {
@@ -117,84 +105,12 @@ function buildAuthResponse(user: { id: string }) {
   };
 }
 
-async function registerUserInMemory(input: RegisterInput) {
-  const normalizedEmail = input.email.trim().toLowerCase();
-  const normalizedFullName = input.fullName?.trim() || normalizedEmail.split("@")[0] || "User";
-
-  const existingStored = findFallbackManagerByEmail(normalizedEmail);
-  if (inMemoryUsers.has(normalizedEmail) || existingStored) {
-    throw new HttpError(409, "Email already in use");
-  }
-
-  const passwordHash = await hashPassword(input.password);
-  const storedUser = addFallbackManager({
-    fullName: normalizedFullName,
-    email: normalizedEmail,
-    passwordHash,
-  });
-  if (!storedUser) {
-    throw new HttpError(409, "Email already in use");
-  }
-
-  const user: InMemoryUser = {
-    id: storedUser.id,
-    fullName: normalizedFullName,
-    email: normalizedEmail,
-    passwordHash,
-    role: UserRole.MANAGER,
-  };
-
-  inMemoryUsers.set(normalizedEmail, user);
-
-  const auth = buildAuthResponse(user);
-  return {
-    message: "Manager registered successfully",
-    ...auth,
-  };
-}
-
-async function loginUserInMemory(input: LoginInput) {
-  const normalizedEmail = input.email.trim().toLowerCase();
-  const user = inMemoryUsers.get(normalizedEmail)
-    ?? findFallbackManagerByEmail(normalizedEmail);
-
-  if (!user) {
-    throw new HttpError(401, "Invalid credentials");
-  }
-
-  const isValid = await verifyPassword(input.password, user.passwordHash);
-  if (!isValid) {
-    throw new HttpError(401, "Invalid credentials");
-  }
-
-  return buildAuthResponse(user);
-}
-
 function toAuthUserProfile(user: { id: string; fullName: string; email: string }): AuthUserProfile {
   return {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
     role: "manager",
-  };
-}
-
-function getInMemoryUserById(userId: string): InMemoryUser | null {
-  for (const user of inMemoryUsers.values()) {
-    if (user.id === userId) {
-      return user;
-    }
-  }
-  const storedUser = findFallbackManagerById(userId);
-  if (!storedUser) {
-    return null;
-  }
-  return {
-    id: storedUser.id,
-    fullName: storedUser.fullName,
-    email: storedUser.email,
-    passwordHash: storedUser.passwordHash,
-    role: UserRole.MANAGER,
   };
 }
 
@@ -210,27 +126,18 @@ export async function getAuthUserProfile(userId: string): Promise<AuthUserProfil
       },
     });
 
-    if (user) {
-      if (user.role !== UserRole.MANAGER) {
-        throw new HttpError(403, "Manager access only");
-      }
-      return toAuthUserProfile(user);
+    if (!user) {
+      return null;
     }
+
+    if (user.role !== UserRole.MANAGER) {
+      throw new HttpError(403, "Manager access only");
+    }
+
+    return toAuthUserProfile(user);
   } catch (error) {
-    const mappedError = toLoginError(error);
-    if (mappedError.statusCode !== 503) {
-      throw mappedError;
-    }
-
-    console.warn("Database unavailable while resolving /me, using in-memory fallback", { userId });
+    throw toLoginError(error);
   }
-
-  const inMemoryUser = getInMemoryUserById(userId);
-  if (!inMemoryUser) {
-    return null;
-  }
-
-  return toAuthUserProfile(inMemoryUser);
 }
 
 export async function registerUser(input: RegisterInput) {
@@ -263,13 +170,6 @@ export async function registerUser(input: RegisterInput) {
   } catch (error) {
     const mappedError = toRegistrationError(error);
 
-    if (mappedError.statusCode === 503) {
-      console.warn("Database unavailable during registration, using in-memory fallback", {
-        email: normalizedEmail,
-      });
-      return registerUserInMemory(input);
-    }
-
     console.error("Registration failed", {
       email: normalizedEmail,
       mappedStatus: mappedError.statusCode,
@@ -301,15 +201,6 @@ export async function loginUser(input: LoginInput) {
 
     return buildAuthResponse(user);
   } catch (error) {
-    const mappedError = toLoginError(error);
-
-    if (mappedError.statusCode === 503) {
-      console.warn("Database unavailable during login, using in-memory fallback", {
-        email: normalizedEmail,
-      });
-      return loginUserInMemory(input);
-    }
-
-    throw mappedError;
+    throw toLoginError(error);
   }
 }

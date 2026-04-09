@@ -54,7 +54,7 @@ describe("manager employees routes integration", () => {
     });
   });
 
-  it("falls back to in-memory mode when database is unavailable", async () => {
+  it("returns 503 when database is unavailable", async () => {
     vi.doMock("@/server/auth/guard", () => ({
       requireAuth: async () => ({ user_id: "m-1", role: "manager" }),
     }));
@@ -94,10 +94,7 @@ describe("manager employees routes integration", () => {
       }),
     }));
 
-    expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      message: "Employee added successfully (temporary in-memory mode)",
-      employee: { fullName: "Offline Employee" },
-    });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "Database unavailable" });
   });
 });

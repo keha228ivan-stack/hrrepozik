@@ -47,7 +47,7 @@ describe("courses routes integration", () => {
     });
   });
 
-  it("falls back to in-memory mode when database is unavailable", async () => {
+  it("returns 503 when database is unavailable", async () => {
     vi.doMock("@/server/auth/guard", () => ({
       requireAuth: async () => ({ user_id: "m-1", role: "manager" }),
     }));
@@ -77,10 +77,7 @@ describe("courses routes integration", () => {
     formData.append("videos", new File(["video"], "intro.mp4", { type: "video/mp4" }));
 
     const response = await route.POST(new Request("http://localhost/api/courses", { method: "POST", body: formData }));
-    expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      message: "Course created successfully (temporary in-memory mode)",
-      course: { title: "Database Offline Course" },
-    });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "Database unavailable" });
   });
 });
