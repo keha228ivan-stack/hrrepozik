@@ -41,7 +41,7 @@ describe("auth routes integration", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: "Test User",
-          email: "user@test.dev",
+          email: " user@test.dev ",
           password: "password123",
           role: "EMPLOYEE",
         }),
@@ -69,7 +69,7 @@ describe("auth routes integration", () => {
 
     expect(duplicateResponse.status).toBe(409);
     await expect(duplicateResponse.json()).resolves.toMatchObject({
-      error: "User with this email already exists",
+      error: "Email already in use",
     });
 
     const loginResponse = await loginRoute.POST(
@@ -141,6 +141,22 @@ describe("auth routes integration", () => {
 
     expect(withoutFullNameResponse.status).toBe(201);
 
+    const emptyFullNameResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "   ",
+          email: "blank-name@test.dev",
+          password: "123456",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(emptyFullNameResponse.status).toBe(201);
+
+
     const missingEmailResponse = await registerRoute.POST(
       new Request("http://localhost/api/auth/register", {
         method: "POST",
@@ -182,4 +198,22 @@ describe("auth routes integration", () => {
 
     expect(weakPasswordResponse.status).toBe(400);
   });
+
+  it("returns 400 for invalid JSON payload", async () => {
+    const registerRoute = await import("@/app/api/auth/register/route");
+
+    const invalidJsonRequest = new Request("http://localhost/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{invalid-json}",
+    });
+
+    const response = await registerRoute.POST(invalidJsonRequest);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid JSON payload",
+    });
+  });
+
 });
