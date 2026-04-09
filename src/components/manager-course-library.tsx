@@ -48,12 +48,20 @@ export function ManagerCourseLibrary() {
       const response = await authFetch("/api/courses");
       const data = (await response.json()) as { courses?: ApiCourse[]; error?: string };
       if (!response.ok) {
-        setError(data.error ?? "Не удалось загрузить курсы");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Доступ к библиотеке курсов открыт только менеджерам.");
+          return;
+        }
+        setError(data.error ?? "Не удалось загрузить библиотеку курсов. Проверьте соединение и попробуйте снова.");
         return;
       }
       setCourses(data.courses ?? []);
     } catch {
-      setError("Ошибка при загрузке курсов");
+      setError("Сетевая ошибка при загрузке курсов. Проверьте интернет и попробуйте снова.");
     } finally {
       setIsLoading(false);
     }
@@ -95,14 +103,22 @@ export function ManagerCourseLibrary() {
       });
       const data = (await response.json()) as { error?: string; message?: string; course?: ApiCourse };
       if (!response.ok) {
-        setError(data.error ?? "Не удалось обновить курс");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Редактирование курса доступно только менеджерам.");
+          return;
+        }
+        setError(data.error ?? "Не удалось сохранить изменения курса. Попробуйте снова.");
         return;
       }
-      setSuccess(data.message ?? "Курс обновлён");
+      setSuccess(data.message ?? `Курс «${editDraft.title}» успешно обновлён.`);
       setEditDraft(null);
       void loadCourses();
     } catch {
-      setError("Ошибка при сохранении курса");
+      setError("Сетевая ошибка при сохранении курса. Попробуйте снова.");
     } finally {
       setIsSaving(false);
     }
@@ -111,17 +127,34 @@ export function ManagerCourseLibrary() {
   const deleteCourse = async (courseId: string) => {
     setError(null);
     setSuccess(null);
+    const currentCourse = courses.find((course) => course.id === courseId);
+    if (!currentCourse) return;
+    if ((currentCourse.enrolledCount ?? 0) > 0) {
+      setError("Нельзя удалить курс, пока в нём есть назначенные сотрудники. Сначала снимите назначения.");
+      return;
+    }
+    if (!window.confirm(`Удалить курс «${currentCourse.title}»? Это действие нельзя отменить.`)) {
+      return;
+    }
     try {
       const response = await authFetch(`/api/courses/${courseId}`, { method: "DELETE" });
       const data = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) {
-        setError(data.error ?? "Не удалось удалить курс");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Удаление курса доступно только менеджерам.");
+          return;
+        }
+        setError(data.error ?? "Не удалось удалить курс. Попробуйте снова.");
         return;
       }
-      setSuccess(data.message ?? "Курс удалён");
+      setSuccess(data.message ?? `Курс «${currentCourse.title}» удалён.`);
       setCourses((prev) => prev.filter((course) => course.id !== courseId));
     } catch {
-      setError("Ошибка при удалении курса");
+      setError("Сетевая ошибка при удалении курса. Попробуйте снова.");
     }
   };
 
@@ -137,7 +170,12 @@ export function ManagerCourseLibrary() {
       {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
 
       {!sortedCourses.length ? (
-        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">Курсы пока не созданы.</p>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p>Курсов пока нет. Создайте первый курс, чтобы начать обучение сотрудников.</p>
+          <Link href="/manager/courses/new" className="mt-2 inline-block font-semibold text-blue-600 hover:underline">
+            Перейти к созданию курса
+          </Link>
+        </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-3">
           {sortedCourses.map((course) => {

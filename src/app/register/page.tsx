@@ -28,7 +28,7 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto mt-24 max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
       <h1 className="text-2xl font-semibold">Регистрация менеджера</h1>
-      <p className="mt-1 text-sm text-slate-500">Создайте аккаунт менеджера</p>
+      <p className="mt-1 text-sm text-slate-500">Сайт доступен только для менеджеров. Создайте аккаунт менеджера.</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-3">
         <input
           value={fullName}

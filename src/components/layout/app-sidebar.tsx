@@ -6,7 +6,7 @@ import { Bell, BookOpen, FileBarChart2, Home, LibraryBig, Users } from "lucide-r
 import { isNavLinkActive } from "@/components/layout/sidebar-utils";
 
 const managerNav = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/dashboard", label: "Панель менеджера", icon: Home },
   { href: "/manager/employees", label: "Сотрудники", icon: Users },
   { href: "/manager/training", label: "Обучение", icon: BookOpen },
   { href: "/manager/courses", label: "Библиотека курсов", icon: LibraryBig },

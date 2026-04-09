@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type EmployeeOption = {
   id: string;
@@ -56,7 +57,15 @@ export function AssignCoursePanel() {
         const response = await authFetch("/api/assign-course");
         const data = (await response.json()) as { error?: string; employees?: EmployeeOption[]; courses?: CourseOption[] };
         if (!response.ok) {
-          setError(data.error ?? "Не удалось загрузить список сотрудников и курсов");
+          if (response.status === 401) {
+            setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+            return;
+          }
+          if (response.status === 403) {
+            setError("Раздел назначения обучения доступен только менеджерам.");
+            return;
+          }
+          setError(data.error ?? "Не удалось загрузить сотрудников и курсы. Попробуйте снова.");
           return;
         }
 
@@ -67,7 +76,7 @@ export function AssignCoursePanel() {
         setEmployeeId(nextEmployees[0]?.id ?? "");
         setCourseId(nextCourses[0]?.id ?? "");
       } catch {
-        setError("Ошибка при загрузке данных");
+        setError("Сетевая ошибка при загрузке данных. Проверьте интернет и попробуйте снова.");
       } finally {
         setIsLoading(false);
       }
@@ -114,16 +123,25 @@ export function AssignCoursePanel() {
 
       const data = (await response.json()) as { message?: string; error?: string; enrollment?: EnrollmentView };
       if (!response.ok) {
-        setError(data.error ?? "Не удалось назначить курс");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Назначение обучения доступно только менеджерам.");
+          return;
+        }
+        setError(data.error ?? "Не удалось назначить курс. Проверьте данные и попробуйте снова.");
         return;
       }
-
-      setSuccess(data.message ?? "Курс назначен");
+      const selectedCourseTitle = courses.find((course) => course.id === courseId)?.title ?? "курс";
+      const employeeName = employees.find((employee) => employee.id === employeeId)?.fullName ?? "сотруднику";
+      setSuccess(data.message ?? `Курс «${selectedCourseTitle}» успешно назначен: ${employeeName}.`);
       if (data.enrollment) {
         setAssignedCourses((prev) => [data.enrollment, ...prev]);
       }
     } catch {
-      setError("Ошибка при назначении курса");
+      setError("Сетевая ошибка при назначении курса. Попробуйте снова.");
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +193,10 @@ export function AssignCoursePanel() {
             {assignedCourses.length ? assignedCourses.map((assignment) => (
               <div key={assignment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
                 <p className="font-medium text-slate-800">{assignment.course.title}</p>
-                <p className="text-xs text-slate-500">Статус: {assignment.status} · Прогресс: {assignment.progress}% · Назначен: {new Date(assignment.createdAt).toLocaleDateString()}</p>
+                <p className="mt-1 text-xs text-slate-500">Прогресс: {assignment.progress}% · Назначен: {new Date(assignment.createdAt).toLocaleDateString()}</p>
+                <div className="mt-1">
+                  <StatusBadge status={assignment.status} />
+                </div>
               </div>
             )) : <p className="text-sm text-slate-500">Курсы пока не назначены.</p>}
           </div>

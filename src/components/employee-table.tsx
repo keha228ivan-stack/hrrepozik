@@ -44,16 +44,26 @@ export function EmployeeTable() {
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const response = await authFetch("/api/manager/employees");
-    const data = (await response.json()) as { employees?: EmployeeRow[]; departments?: DepartmentOption[]; error?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Не удалось загрузить сотрудников");
+    try {
+      const response = await authFetch("/api/manager/employees");
+      const data = (await response.json()) as { employees?: EmployeeRow[]; departments?: DepartmentOption[]; error?: string };
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+        } else if (response.status === 403) {
+          setError("Раздел сотрудников доступен только менеджерам.");
+        } else {
+          setError(data.error ?? "Не удалось загрузить список сотрудников. Попробуйте снова.");
+        }
+        return;
+      }
+      setRows(data.employees ?? []);
+      setDepartments(data.departments ?? []);
+    } catch {
+      setError("Сетевая ошибка при загрузке сотрудников. Проверьте интернет и попробуйте снова.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-    setRows(data.employees ?? []);
-    setDepartments(data.departments ?? []);
-    setIsLoading(false);
   }, [authFetch]);
 
   useEffect(() => {
@@ -78,11 +88,19 @@ export function EmployeeTable() {
       });
       const data = (await response.json()) as { error?: string; message?: string; employee?: EmployeeRow };
       if (!response.ok) {
-        setError(data.error ?? "Не удалось добавить сотрудника");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Добавление сотрудников доступно только менеджерам.");
+          return;
+        }
+        setError(data.error ?? "Не удалось добавить сотрудника. Проверьте данные и попробуйте снова.");
         return;
       }
 
-      setSuccess(data.message ?? "Сотрудник добавлен");
+      setSuccess(data.message ?? `Сотрудник «${formState.fullName}» успешно добавлен.`);
       setFormState({
         fullName: "",
         email: "",
@@ -96,7 +114,7 @@ export function EmployeeTable() {
         await loadEmployees();
       }
     } catch {
-      setError("Ошибка при добавлении сотрудника");
+      setError("Сетевая ошибка при добавлении сотрудника. Попробуйте снова.");
     } finally {
       setIsAdding(false);
     }

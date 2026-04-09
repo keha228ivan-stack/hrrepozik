@@ -26,7 +26,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto mt-24 max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
       <h1 className="text-2xl font-semibold">Вход в систему</h1>
-      <p className="mt-1 text-sm text-slate-500">Введите email и пароль</p>
+      <p className="mt-1 text-sm text-slate-500">Вход только для менеджеров. Введите email и пароль.</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-3">
         <input value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Email" type="email" />
         <input value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Пароль" type="password" />

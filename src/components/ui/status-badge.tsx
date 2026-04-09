@@ -15,10 +15,17 @@ const statusMap: Record<string, string> = {
 };
 
 const statusLabelMap: Record<string, string> = {
+  active: "активен",
+  onboarding: "в адаптации",
+  vacation: "в отпуске",
+  inactive: "неактивен",
   CREATED: "создан",
   ACTIVE: "активен",
-  COMPLETED: "завершен",
-  CANCELLED: "отменен",
+  COMPLETED: "завершён",
+  CANCELLED: "отменён",
+  draft: "черновик",
+  published: "опубликован",
+  archived: "архив",
 };
 
 export function StatusBadge({ status }: { status: string }) {

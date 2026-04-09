@@ -34,7 +34,15 @@ export default function ManagerReportsPage() {
       const response = await authFetch("/api/reports/summary");
       const payload = (await response.json()) as ReportsData & { error?: string };
       if (!response.ok) {
-        setError(payload.error ?? "Не удалось загрузить отчёт");
+        if (response.status === 401) {
+          setError("Сессия истекла. Выполните вход в аккаунт менеджера.");
+          return;
+        }
+        if (response.status === 403) {
+          setError("Раздел отчётов доступен только менеджерам.");
+          return;
+        }
+        setError(payload.error ?? "Не удалось загрузить отчёты. Попробуйте снова.");
         return;
       }
       setData(payload);
@@ -64,6 +72,7 @@ export default function ManagerReportsPage() {
 
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-lg font-semibold text-slate-900">Топ сотрудников по обучению</h3>
+            <p className="mb-3 text-xs text-slate-500">Просроченные курсы = дедлайн в прошлом и статус не «завершён/отменён».</p>
             <div className="space-y-4">
               {data.topEmployees.map((employee) => (
                 <div key={employee.userId}>
@@ -77,6 +86,11 @@ export default function ManagerReportsPage() {
               {!data.topEmployees.length ? <p className="text-sm text-slate-500">Пока нет данных по сотрудникам.</p> : null}
             </div>
           </div>
+          {!data.summary.totalEmployees ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+              Это новый аккаунт без сотрудников. Добавьте сотрудников, создайте курс и назначьте обучение — после этого отчёты заполнятся автоматически.
+            </div>
+          ) : null}
         </>
       )}
     </div>

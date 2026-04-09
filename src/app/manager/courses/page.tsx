@@ -8,7 +8,7 @@ export default function ManagerCoursesPage() {
     <div>
       <SectionHeader
         title="Библиотека курсов"
-        subtitle="Черновики, опубликованные и архивные курсы"
+        subtitle="Раздел менеджера: черновики, опубликованные и архивные курсы"
         action={(
           <Link href="/manager/courses/new" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             Создать курс
