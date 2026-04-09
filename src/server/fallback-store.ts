@@ -207,3 +207,51 @@ export function listFallbackAssignmentsByUser(userId: string) {
   const store = readStore();
   return store.assignments.filter((assignment) => assignment.userId === userId);
 }
+
+export function listFallbackAssignments() {
+  const store = readStore();
+  return [...store.assignments];
+}
+
+export function updateFallbackCourse(courseId: string, updates: Partial<{
+  title: string;
+  category: string;
+  level: string;
+  duration: string;
+  description: string;
+  instructor: string;
+  status: CourseStatus;
+}>) {
+  const store = readStore();
+  const index = store.courses.findIndex((course) => course.id === courseId);
+  if (index === -1) {
+    return null;
+  }
+
+  if (updates.title) {
+    const normalizedTitle = updates.title.toLowerCase();
+    const duplicate = store.courses.find((course) => course.id !== courseId && course.title.toLowerCase() === normalizedTitle);
+    if (duplicate) {
+      return "duplicate";
+    }
+  }
+
+  store.courses[index] = {
+    ...store.courses[index],
+    ...updates,
+  };
+  writeStore(store);
+  return store.courses[index];
+}
+
+export function deleteFallbackCourse(courseId: string) {
+  const store = readStore();
+  const nextCourses = store.courses.filter((course) => course.id !== courseId);
+  if (nextCourses.length === store.courses.length) {
+    return false;
+  }
+  store.courses = nextCourses;
+  store.assignments = store.assignments.filter((assignment) => assignment.courseId !== courseId);
+  writeStore(store);
+  return true;
+}
