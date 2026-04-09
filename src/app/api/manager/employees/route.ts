@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAuth } from "@/server/auth/guard";
 import { hashPassword } from "@/server/auth/password";
 import { db } from "@/server/db";
+import { addFallbackEmployee, listFallbackEmployees } from "@/server/fallback-store";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
 const createEmployeeSchema = z.object({
@@ -13,22 +14,6 @@ const createEmployeeSchema = z.object({
   departmentId: z.string().trim().optional(),
   status: z.nativeEnum(EmployeeStatus).default(EmployeeStatus.onboarding),
 });
-
-type InMemoryEmployee = {
-  id: string;
-  fullName: string;
-  email: string;
-  departmentId: string | null;
-  employeeProfile: {
-    position: string;
-    status: EmployeeStatus;
-    performance: number;
-    completedCourses: number;
-    inProgressCourses: number;
-  };
-};
-
-const inMemoryEmployees = new Map<string, InMemoryEmployee>();
 
 function isDatabaseUnavailable(error: unknown) {
   return error instanceof Prisma.PrismaClientInitializationError
@@ -73,7 +58,7 @@ export async function GET() {
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       return Response.json({
-        employees: Array.from(inMemoryEmployees.values()),
+        employees: listFallbackEmployees(),
         departments: [],
         warning: "Database unavailable, fallback mode enabled",
       });
@@ -154,24 +139,16 @@ export async function POST(request: Request) {
         throw error;
       }
 
-      if (inMemoryEmployees.has(normalizedEmail)) {
-        throw new HttpError(409, "Employee with this email already exists");
-      }
-
-      const employee: InMemoryEmployee = {
-        id: randomUUID(),
+      const employee = addFallbackEmployee({
         fullName: parsed.data.fullName,
         email: normalizedEmail,
         departmentId: parsed.data.departmentId || null,
-        employeeProfile: {
-          position: parsed.data.position,
-          status: parsed.data.status,
-          performance: 0,
-          completedCourses: 0,
-          inProgressCourses: 0,
-        },
-      };
-      inMemoryEmployees.set(normalizedEmail, employee);
+        position: parsed.data.position,
+        status: parsed.data.status,
+      });
+      if (!employee) {
+        throw new HttpError(409, "Employee with this email already exists");
+      }
 
       return Response.json({
         message: "Employee added successfully (temporary in-memory mode)",

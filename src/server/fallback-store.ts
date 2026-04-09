@@ -26,6 +26,28 @@ type FallbackCourse = {
 type FallbackStore = {
   managers: FallbackManager[];
   courses: FallbackCourse[];
+  employees: {
+    id: string;
+    fullName: string;
+    email: string;
+    departmentId: string | null;
+    employeeProfile: {
+      position: string;
+      status: "active" | "onboarding" | "vacation" | "inactive";
+      performance: number;
+      completedCourses: number;
+      inProgressCourses: number;
+    };
+  }[];
+  assignments: {
+    id: string;
+    userId: string;
+    courseId: string;
+    progress: number;
+    status: "CREATED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+    createdAt: string;
+    deadline: string;
+  }[];
 };
 
 const FALLBACK_STORE_PATH = join(process.cwd(), ".data", "fallback-store.json");
@@ -36,7 +58,7 @@ function ensureStoreFile() {
     mkdirSync(dir, { recursive: true });
   }
   if (!existsSync(FALLBACK_STORE_PATH)) {
-    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [] }), "utf8");
+    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [], employees: [], assignments: [] }), "utf8");
   }
 }
 
@@ -48,9 +70,11 @@ function readStore(): FallbackStore {
     return {
       managers: parsed.managers ?? [],
       courses: parsed.courses ?? [],
+      employees: parsed.employees ?? [],
+      assignments: parsed.assignments ?? [],
     };
   } catch {
-    return { managers: [], courses: [] };
+    return { managers: [], courses: [], employees: [], assignments: [] };
   }
 }
 
@@ -120,4 +144,66 @@ export function addFallbackCourse(input: {
 export function listFallbackCourses() {
   const store = readStore();
   return [...store.courses];
+}
+
+export function addFallbackEmployee(input: {
+  fullName: string;
+  email: string;
+  departmentId: string | null;
+  position: string;
+  status: "active" | "onboarding" | "vacation" | "inactive";
+}) {
+  const store = readStore();
+  if (store.employees.some((employee) => employee.email === input.email)) {
+    return null;
+  }
+  const employee = {
+    id: randomUUID(),
+    fullName: input.fullName,
+    email: input.email,
+    departmentId: input.departmentId,
+    employeeProfile: {
+      position: input.position,
+      status: input.status,
+      performance: 0,
+      completedCourses: 0,
+      inProgressCourses: 0,
+    },
+  };
+  store.employees.push(employee);
+  writeStore(store);
+  return employee;
+}
+
+export function listFallbackEmployees() {
+  const store = readStore();
+  return [...store.employees];
+}
+
+export function addFallbackAssignment(input: {
+  userId: string;
+  courseId: string;
+  deadline: string;
+}) {
+  const store = readStore();
+  if (store.assignments.some((assignment) => assignment.userId === input.userId && assignment.courseId === input.courseId)) {
+    return null;
+  }
+  const assignment = {
+    id: randomUUID(),
+    userId: input.userId,
+    courseId: input.courseId,
+    progress: 0,
+    status: "CREATED" as const,
+    createdAt: new Date().toISOString(),
+    deadline: input.deadline,
+  };
+  store.assignments.push(assignment);
+  writeStore(store);
+  return assignment;
+}
+
+export function listFallbackAssignmentsByUser(userId: string) {
+  const store = readStore();
+  return store.assignments.filter((assignment) => assignment.userId === userId);
 }
