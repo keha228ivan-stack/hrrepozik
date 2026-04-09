@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { CourseStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { HttpError } from "@/server/http-error";
+import { addFallbackCourse, listFallbackCourses } from "@/server/fallback-store";
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -12,8 +12,6 @@ function readString(formData: FormData, key: string) {
 function asFile(value: FormDataEntryValue) {
   return value instanceof File ? value : null;
 }
-
-const inMemoryCourses = new Map<string, { id: string; title: string; category: string; level: string; duration: string; instructor: string; status: CourseStatus }>();
 
 function isDatabaseUnavailable(error: unknown) {
   return error instanceof Prisma.PrismaClientInitializationError
@@ -115,25 +113,43 @@ export async function createCourseFromFormData(formData: FormData) {
       throw error;
     }
 
-    const normalizedTitle = title.toLowerCase();
-    if (inMemoryCourses.has(normalizedTitle)) {
-      throw new HttpError(409, "Course with this title already exists");
-    }
-
-    const fallbackCourse = {
-      id: randomUUID(),
+    const fallbackCourse = addFallbackCourse({
       title,
       category,
       level,
       duration,
+      description,
       instructor,
-      status: CourseStatus.draft,
-    };
-    inMemoryCourses.set(normalizedTitle, fallbackCourse);
+    });
+
+    if (!fallbackCourse) {
+      throw new HttpError(409, "Course with this title already exists");
+    }
 
     return {
       message: "Course created successfully (temporary in-memory mode)",
       course: fallbackCourse,
     };
+  }
+}
+
+export async function listCoursesWithFallback() {
+  try {
+    return await db.course.findMany({
+      orderBy: { title: "asc" },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        level: true,
+        duration: true,
+        status: true,
+      },
+    });
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) {
+      throw error;
+    }
+    return listFallbackCourses();
   }
 }

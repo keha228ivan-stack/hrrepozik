@@ -1,10 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { UserRole } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { db } from "@/server/db";
 import { signAccessToken } from "@/server/auth/jwt";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { HttpError } from "@/server/http-error";
+import { addFallbackManager, findFallbackManagerByEmail, findFallbackManagerById } from "@/server/fallback-store";
 
 type RegisterInput = {
   fullName?: string;
@@ -121,13 +121,23 @@ async function registerUserInMemory(input: RegisterInput) {
   const normalizedEmail = input.email.trim().toLowerCase();
   const normalizedFullName = input.fullName?.trim() || normalizedEmail.split("@")[0] || "User";
 
-  if (inMemoryUsers.has(normalizedEmail)) {
+  const existingStored = findFallbackManagerByEmail(normalizedEmail);
+  if (inMemoryUsers.has(normalizedEmail) || existingStored) {
     throw new HttpError(409, "Email already in use");
   }
 
   const passwordHash = await hashPassword(input.password);
+  const storedUser = addFallbackManager({
+    fullName: normalizedFullName,
+    email: normalizedEmail,
+    passwordHash,
+  });
+  if (!storedUser) {
+    throw new HttpError(409, "Email already in use");
+  }
+
   const user: InMemoryUser = {
-    id: randomUUID(),
+    id: storedUser.id,
     fullName: normalizedFullName,
     email: normalizedEmail,
     passwordHash,
@@ -145,7 +155,8 @@ async function registerUserInMemory(input: RegisterInput) {
 
 async function loginUserInMemory(input: LoginInput) {
   const normalizedEmail = input.email.trim().toLowerCase();
-  const user = inMemoryUsers.get(normalizedEmail);
+  const user = inMemoryUsers.get(normalizedEmail)
+    ?? findFallbackManagerByEmail(normalizedEmail);
 
   if (!user) {
     throw new HttpError(401, "Invalid credentials");
@@ -174,7 +185,17 @@ function getInMemoryUserById(userId: string): InMemoryUser | null {
       return user;
     }
   }
-  return null;
+  const storedUser = findFallbackManagerById(userId);
+  if (!storedUser) {
+    return null;
+  }
+  return {
+    id: storedUser.id,
+    fullName: storedUser.fullName,
+    email: storedUser.email,
+    passwordHash: storedUser.passwordHash,
+    role: UserRole.MANAGER,
+  };
 }
 
 export async function getAuthUserProfile(userId: string): Promise<AuthUserProfile | null> {

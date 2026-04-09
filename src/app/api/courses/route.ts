@@ -1,7 +1,6 @@
 import { requireAuth } from "@/server/auth/guard";
-import { db } from "@/server/db";
 import { HttpError, toErrorResponse } from "@/server/http-error";
-import { createCourseFromFormData } from "@/server/services/course-create.service";
+import { createCourseFromFormData, listCoursesWithFallback } from "@/server/services/course-create.service";
 
 export async function GET() {
   try {
@@ -10,17 +9,7 @@ export async function GET() {
       throw new HttpError(403, "Manager access only");
     }
 
-    const courses = await db.course.findMany({
-      orderBy: { title: "asc" },
-      select: {
-        id: true,
-        title: true,
-        category: true,
-        level: true,
-        duration: true,
-        status: true,
-      },
-    });
+    const courses = await listCoursesWithFallback();
 
     return Response.json({ courses });
   } catch (error) {

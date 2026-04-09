@@ -1,7 +1,6 @@
-import { CourseCard } from "@/components/course-card";
+import { ManagerCourseLibrary } from "@/components/manager-course-library";
 import { SearchFilterBar } from "@/components/search-filter-bar";
 import { SectionHeader } from "@/components/ui/section-header";
-import { courses } from "@/lib/mock-data";
 import Link from "next/link";
 
 export default function ManagerCoursesPage() {
@@ -17,9 +16,7 @@ export default function ManagerCoursesPage() {
         )}
       />
       <SearchFilterBar placeholder="Поиск курса по названию" />
-      <div className="grid gap-4 xl:grid-cols-3">
-        {courses.map((course) => <CourseCard key={course.id} course={course} />)}
-      </div>
+      <ManagerCourseLibrary />
     </div>
   );
 }
