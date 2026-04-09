@@ -143,10 +143,6 @@ export async function listCoursesWithFallback() {
         category: true,
         level: true,
         duration: true,
-        description: true,
-        instructor: true,
-        enrolledCount: true,
-        completedCount: true,
         status: true,
       },
     });
