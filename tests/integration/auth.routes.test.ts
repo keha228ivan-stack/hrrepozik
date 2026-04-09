@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyAccessToken } from "@/server/auth/jwt";
 
@@ -198,6 +199,53 @@ describe("auth routes integration", () => {
 
     expect(weakPasswordResponse.status).toBe(400);
   });
+
+  it("falls back to in-memory auth when database is unavailable", async () => {
+    vi.doMock("@/server/db", () => ({
+      db: {
+        user: {
+          findUnique: async () => {
+            throw new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" });
+          },
+          create: async () => {
+            throw new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" });
+          },
+        },
+      },
+    }));
+
+    const registerRoute = await import("@/app/api/auth/register/route");
+    const loginRoute = await import("@/app/api/auth/login/route");
+
+    const registerResponse = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Offline User",
+          email: "offline@test.dev",
+          password: "password123",
+          role: "EMPLOYEE",
+        }),
+      }),
+    );
+
+    expect(registerResponse.status).toBe(201);
+
+    const loginResponse = await loginRoute.POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "offline@test.dev",
+          password: "password123",
+        }),
+      }),
+    );
+
+    expect(loginResponse.status).toBe(200);
+  });
+
 
   it("returns 400 for invalid JSON payload", async () => {
     const registerRoute = await import("@/app/api/auth/register/route");

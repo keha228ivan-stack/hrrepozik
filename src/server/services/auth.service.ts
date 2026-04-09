@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { UserRole } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { db } from "@/server/db";
 import { signAccessToken } from "@/server/auth/jwt";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
@@ -16,6 +17,16 @@ type LoginInput = {
   email: string;
   password: string;
 };
+
+type InMemoryUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+};
+
+const inMemoryUsers = new Map<string, InMemoryUser>();
 
 function validateRegisterInput(input: RegisterInput) {
   if (!input.email || !input.password) {
@@ -72,6 +83,77 @@ function toRegistrationError(error: unknown): HttpError {
   return new HttpError(500, "Registration failed due to an unexpected server error");
 }
 
+function toLoginError(error: unknown): HttpError {
+  if (error instanceof HttpError) {
+    return error;
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientInitializationError ||
+    (error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P1000" || error.code === "P1001" || error.code === "P1008"))
+  ) {
+    return new HttpError(503, "Database unavailable");
+  }
+
+  return new HttpError(500, "Login failed due to an unexpected server error");
+}
+
+function buildAuthResponse(user: { id: string; role: UserRole }) {
+  const role = user.role.toLowerCase() as "manager" | "employee";
+  const accessToken = signAccessToken({
+    user_id: user.id,
+    role,
+  });
+
+  return {
+    access_token: accessToken,
+    token_type: "bearer" as const,
+  };
+}
+
+async function registerUserInMemory(input: RegisterInput) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const normalizedFullName = input.fullName?.trim() || normalizedEmail.split("@")[0] || "User";
+
+  if (inMemoryUsers.has(normalizedEmail)) {
+    throw new HttpError(409, "Email already in use");
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  const user: InMemoryUser = {
+    id: randomUUID(),
+    fullName: normalizedFullName,
+    email: normalizedEmail,
+    passwordHash,
+    role: input.role ?? UserRole.EMPLOYEE,
+  };
+
+  inMemoryUsers.set(normalizedEmail, user);
+
+  const auth = buildAuthResponse(user);
+  return {
+    message: "User registered successfully",
+    ...auth,
+  };
+}
+
+async function loginUserInMemory(input: LoginInput) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const user = inMemoryUsers.get(normalizedEmail);
+
+  if (!user) {
+    throw new HttpError(401, "Invalid credentials");
+  }
+
+  const isValid = await verifyPassword(input.password, user.passwordHash);
+  if (!isValid) {
+    throw new HttpError(401, "Invalid credentials");
+  }
+
+  return buildAuthResponse(user);
+}
+
 export async function registerUser(input: RegisterInput) {
   validateRegisterInput(input);
 
@@ -95,19 +177,19 @@ export async function registerUser(input: RegisterInput) {
       },
     });
 
-    const role = user.role.toLowerCase() as "manager" | "employee";
-    const accessToken = signAccessToken({
-      user_id: user.id,
-      role,
-    });
-
     return {
       message: "User registered successfully",
-      access_token: accessToken,
-      token_type: "bearer",
+      ...buildAuthResponse(user),
     };
   } catch (error) {
     const mappedError = toRegistrationError(error);
+
+    if (mappedError.statusCode === 503) {
+      console.warn("Database unavailable during registration, using in-memory fallback", {
+        email: normalizedEmail,
+      });
+      return registerUserInMemory(input);
+    }
 
     console.error("Registration failed", {
       email: normalizedEmail,
@@ -121,24 +203,30 @@ export async function registerUser(input: RegisterInput) {
 }
 
 export async function loginUser(input: LoginInput) {
-  const user = await db.user.findUnique({ where: { email: input.email } });
-  if (!user) {
-    throw new HttpError(401, "Invalid credentials");
+  const normalizedEmail = input.email.trim().toLowerCase();
+
+  try {
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user) {
+      throw new HttpError(401, "Invalid credentials");
+    }
+
+    const isValid = await verifyPassword(input.password, user.passwordHash);
+    if (!isValid) {
+      throw new HttpError(401, "Invalid credentials");
+    }
+
+    return buildAuthResponse(user);
+  } catch (error) {
+    const mappedError = toLoginError(error);
+
+    if (mappedError.statusCode === 503) {
+      console.warn("Database unavailable during login, using in-memory fallback", {
+        email: normalizedEmail,
+      });
+      return loginUserInMemory(input);
+    }
+
+    throw mappedError;
   }
-
-  const isValid = await verifyPassword(input.password, user.passwordHash);
-  if (!isValid) {
-    throw new HttpError(401, "Invalid credentials");
-  }
-
-  const role = user.role.toLowerCase() as "manager" | "employee";
-  const accessToken = signAccessToken({
-    user_id: user.id,
-    role,
-  });
-
-  return {
-    access_token: accessToken,
-    token_type: "bearer",
-  };
 }

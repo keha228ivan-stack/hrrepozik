@@ -49,6 +49,74 @@ describe("auth.service", () => {
   it("maps prisma duplicate constraint to 409", async () => {
     findUniqueMock.mockResolvedValueOnce(null);
     hashPasswordMock.mockResolvedValueOnce("hashed-password");
+    createMock.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }),
+    );
+
+    await expect(
+      registerUser({
+        fullName: "Test User",
+        email: "user@test.dev",
+        password: "password123",
+      }),
+    ).rejects.toMatchObject<HttpError>({ statusCode: 409, message: "Email already in use" });
+  });
+
+  it("falls back to in-memory auth when database is unavailable", async () => {
+    findUniqueMock.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }),
+    );
+    hashPasswordMock.mockResolvedValue("hashed-password");
+    signAccessTokenMock.mockReturnValue("jwt-token");
+    verifyPasswordMock.mockResolvedValue(true);
+
+    const registerResult = await registerUser({
+      fullName: "Offline User",
+      email: "offline@test.dev",
+      password: "password123",
+    });
+
+    expect(registerResult).toEqual({
+      message: "User registered successfully",
+      access_token: "jwt-token",
+      token_type: "bearer",
+    });
+
+    findUniqueMock.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }),
+    );
+
+    const loginResult = await loginUser({
+      email: "offline@test.dev",
+      password: "password123",
+    });
+
+    expect(loginResult).toEqual({
+      access_token: "jwt-token",
+      token_type: "bearer",
+    });
+  });
+
+  it("maps prisma schema mismatch to migration guidance", async () => {
+    findUniqueMock.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("missing table", { code: "P2021", clientVersion: "test" }),
+    );
+
+    await expect(
+      registerUser({
+        fullName: "Test User",
+        email: "user@test.dev",
+        password: "password123",
+      }),
+    ).rejects.toMatchObject<HttpError>({
+      statusCode: 500,
+      message: "Database schema is out of sync. Please run migrations.",
+    });
+  });
+
+  it("maps prisma duplicate constraint to 409", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+    hashPasswordMock.mockResolvedValueOnce("hashed-password");
     createMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }));
 
     await expect(
