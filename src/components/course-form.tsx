@@ -5,6 +5,7 @@ import { ImagePlus, Loader2, PlayCircle, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { courseSchema, type CourseFormValues } from "@/lib/course-form-schema";
+import { useAuth } from "@/contexts/auth-context";
 
 function fileSizeLabel(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -12,6 +13,7 @@ function fileSizeLabel(bytes: number) {
 }
 
 export function CourseForm() {
+  const { authFetch } = useAuth();
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
     defaultValues: {
@@ -84,7 +86,7 @@ export function CourseForm() {
       payload.append("materials", material);
     }
 
-    const response = await fetch("/api/courses", {
+    const response = await authFetch("/api/courses", {
       method: "POST",
       body: payload,
     });
