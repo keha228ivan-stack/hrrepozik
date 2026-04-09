@@ -200,6 +200,39 @@ describe("auth routes integration", () => {
     expect(weakPasswordResponse.status).toBe(400);
   });
 
+  it("accepts legacy registration keys full_name and pass", async () => {
+    const users: DbUser[] = [];
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        user: {
+          findUnique: async ({ where }: { where: { email: string } }) =>
+            users.find((user) => user.email === where.email) ?? null,
+          create: async ({ data }: { data: Omit<DbUser, "id"> }) => {
+            const created: DbUser = { id: `u-${users.length + 1}`, ...data };
+            users.push(created);
+            return created;
+          },
+        },
+      },
+    }));
+
+    const registerRoute = await import("@/app/api/auth/register/route");
+    const response = await registerRoute.POST(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: "Legacy User",
+          email: "legacy-user@test.dev",
+          pass: "password123",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+  });
+
   it("falls back to in-memory auth when database is unavailable", async () => {
     vi.doMock("@/server/db", () => ({
       db: {
