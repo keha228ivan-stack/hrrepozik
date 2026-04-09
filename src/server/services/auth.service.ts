@@ -26,6 +26,13 @@ type InMemoryUser = {
   role: UserRole;
 };
 
+export type AuthUserProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "manager" | "employee";
+};
+
 const inMemoryUsers = new Map<string, InMemoryUser>();
 
 function validateRegisterInput(input: RegisterInput) {
@@ -152,6 +159,56 @@ async function loginUserInMemory(input: LoginInput) {
   }
 
   return buildAuthResponse(user);
+}
+
+function toAuthUserProfile(user: { id: string; fullName: string; email: string; role: UserRole }): AuthUserProfile {
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role.toLowerCase() as "manager" | "employee",
+  };
+}
+
+function getInMemoryUserById(userId: string): InMemoryUser | null {
+  for (const user of inMemoryUsers.values()) {
+    if (user.id === userId) {
+      return user;
+    }
+  }
+  return null;
+}
+
+export async function getAuthUserProfile(userId: string): Promise<AuthUserProfile | null> {
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    if (user) {
+      return toAuthUserProfile(user);
+    }
+  } catch (error) {
+    const mappedError = toLoginError(error);
+    if (mappedError.statusCode !== 503) {
+      throw mappedError;
+    }
+
+    console.warn("Database unavailable while resolving /me, using in-memory fallback", { userId });
+  }
+
+  const inMemoryUser = getInMemoryUserById(userId);
+  if (!inMemoryUser) {
+    return null;
+  }
+
+  return toAuthUserProfile(inMemoryUser);
 }
 
 export async function registerUser(input: RegisterInput) {
