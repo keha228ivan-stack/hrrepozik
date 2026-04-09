@@ -23,5 +23,12 @@ body {
 }
 
 .page-enter-from-left {
-  animation: slideInFromLeft 320ms ease-out;
+  animation: slideInFromLeft 320ms ease-out both;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-from-left {
+    animation: none;
+  }
 }
