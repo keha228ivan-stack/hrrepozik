@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, PlayCircle, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { courseSchema, type CourseFormValues } from "@/lib/course-form-schema";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -33,7 +33,10 @@ export function CourseForm() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [createdCourse, setCreatedCourse] = useState<{ id: string; title: string; status: string; category?: string; level?: string; duration?: string; instructor?: string } | null>(null);
 
-  const descriptionValue = form.watch("description");
+  const [descriptionValue, titleValue, categoryValue, durationValue, levelValue, instructorValue] = useWatch({
+    control: form.control,
+    name: ["description", "title", "category", "duration", "level", "instructor"],
+  });
 
   const sampleVideo = videoFiles[0] ?? null;
   const sampleVideoPreviewUrl = useMemo(() => (sampleVideo ? URL.createObjectURL(sampleVideo) : null), [sampleVideo]);
@@ -211,9 +214,9 @@ export function CourseForm() {
               </button>
             </div>
 
-            <h4 className="text-2xl font-semibold">{form.watch("title") || "Название курса"}</h4>
-            <p className="mt-2 text-sm text-slate-600">{form.watch("category") || "Категория"} · {form.watch("duration") || "Длительность"} · {form.watch("level") || "Уровень"}</p>
-            <p className="mt-1 text-sm text-slate-500">Преподаватель: {form.watch("instructor") || "Не указан"}</p>
+            <h4 className="text-2xl font-semibold">{titleValue || "Название курса"}</h4>
+            <p className="mt-2 text-sm text-slate-600">{categoryValue || "Категория"} · {durationValue || "Длительность"} · {levelValue || "Уровень"}</p>
+            <p className="mt-1 text-sm text-slate-500">Преподаватель: {instructorValue || "Не указан"}</p>
             <div className="prose prose-sm mt-4 max-w-none rounded-xl border border-slate-100 bg-slate-50 p-4" dangerouslySetInnerHTML={{ __html: descriptionValue || "<p>Описание появится здесь</p>" }} />
 
             {sampleVideoPreviewUrl ? (

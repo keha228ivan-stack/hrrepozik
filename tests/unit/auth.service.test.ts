@@ -80,32 +80,27 @@ describe("auth.service manager-only", () => {
     });
   });
 
-  it("falls back to in-memory auth when database is unavailable", async () => {
+  it("returns database unavailable when registering or logging in without DB", async () => {
     findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
-    hashPasswordMock.mockResolvedValue("hashed-password");
-    signAccessTokenMock.mockReturnValue("jwt-token");
-    verifyPasswordMock.mockResolvedValue(true);
 
-    const registerResult = await registerUser({ fullName: "Offline User", email: "offline@test.dev", password: "password123" });
-    expect(registerResult.message).toBe("Manager registered successfully");
+    await expect(registerUser({ fullName: "Offline User", email: "offline@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 503,
+      message: "Database unavailable",
+    });
 
     findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
-    const loginResult = await loginUser({ email: "offline@test.dev", password: "password123" });
-
-    expect(loginResult).toEqual({ access_token: "jwt-token", token_type: "bearer" });
+    await expect(loginUser({ email: "offline@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 503,
+      message: "Database unavailable",
+    });
   });
 
-  it("returns profile from in-memory store when database is unavailable", async () => {
+  it("returns 503 profile error when database is unavailable", async () => {
     findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
-    hashPasswordMock.mockResolvedValue("hashed-password");
-    signAccessTokenMock.mockImplementation(({ user_id }: { user_id: string }) => `jwt-${user_id}`);
 
-    const registerResult = await registerUser({ fullName: "Offline User", email: "profile-offline@test.dev", password: "password123" });
-    const userId = registerResult.access_token.replace("jwt-", "");
-
-    findUniqueMock.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("db down", { code: "P1001", clientVersion: "test" }));
-    const profile = await getAuthUserProfile(userId);
-
-    expect(profile).toMatchObject({ id: userId, email: "profile-offline@test.dev", role: "manager" });
+    await expect(getAuthUserProfile("m-1")).rejects.toMatchObject<HttpError>({
+      statusCode: 503,
+      message: "Database unavailable",
+    });
   });
 });
