@@ -13,6 +13,7 @@ describe("course public route integration", () => {
     vi.doMock("@/server/db", () => ({
       db: {
         course: {
+          findFirst: async () => null,
           create: async () => ({ id: "c-11", title: "TypeScript Mastery", status: "draft", category: "Frontend", level: "Advanced", duration: "4 weeks", instructor: "John Doe" }),
         },
       },

@@ -55,9 +55,17 @@ export function CourseForm() {
       setSubmitError("Загрузите обложку курса");
       return;
     }
+    if (!coverFile.type.startsWith("image/")) {
+      setSubmitError("Файл обложки должен быть изображением");
+      return;
+    }
 
     if (videoFiles.length === 0) {
       setSubmitError("Добавьте хотя бы одно видео");
+      return;
+    }
+    if (videoFiles.some((video) => !video.type.startsWith("video/"))) {
+      setSubmitError("Разрешены только видео-файлы");
       return;
     }
 
@@ -76,7 +84,7 @@ export function CourseForm() {
       payload.append("materials", material);
     }
 
-    const response = await fetch("/api/course", {
+    const response = await fetch("/api/courses", {
       method: "POST",
       body: payload,
     });

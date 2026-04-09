@@ -27,13 +27,30 @@ export async function createCourseFromFormData(formData: FormData) {
   if (!cover) {
     throw new HttpError(400, "Course cover image is required");
   }
+  if (!cover.type.startsWith("image/")) {
+    throw new HttpError(400, "Course cover must be an image file");
+  }
 
   const videos = formData.getAll("videos").map(asFile).filter(Boolean);
   if (!videos.length) {
     throw new HttpError(400, "At least one video file is required");
   }
+  if (videos.some((video) => !video.type.startsWith("video/"))) {
+    throw new HttpError(400, "Videos must be valid video files");
+  }
 
   const materials = formData.getAll("materials").map(asFile).filter(Boolean);
+  const hasInvalidMaterial = materials.some(
+    (material) => material.type && !material.type.startsWith("video/") && !material.type.startsWith("image/") && !material.type.includes("pdf") && !material.type.includes("word") && !material.type.includes("document"),
+  );
+  if (hasInvalidMaterial) {
+    throw new HttpError(400, "One or more materials have unsupported format");
+  }
+
+  const existing = await db.course.findFirst({ where: { title: { equals: title, mode: "insensitive" } }, select: { id: true } });
+  if (existing) {
+    throw new HttpError(409, "Course with this title already exists");
+  }
 
   const createdCourse = await db.course.create({
     data: {
