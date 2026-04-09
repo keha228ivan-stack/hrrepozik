@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { EmployeeStatus, UserRole } from "@prisma/client";
+import { EmployeeStatus, UserRole, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireAuth } from "@/server/auth/guard";
 import { hashPassword } from "@/server/auth/password";
@@ -21,7 +21,8 @@ export async function GET() {
       throw new HttpError(403, "Manager access only");
     }
 
-    const employees = await db.user.findMany({
+    const [employees, departments] = await Promise.all([
+      db.user.findMany({
       where: { role: UserRole.EMPLOYEE },
       orderBy: { fullName: "asc" },
       select: {
@@ -39,9 +40,14 @@ export async function GET() {
           },
         },
       },
-    });
+      }),
+      db.department.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
 
-    return Response.json({ employees });
+    return Response.json({ employees, departments });
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -67,6 +73,16 @@ export async function POST(request: Request) {
 
     const generatedPassword = randomUUID();
     const passwordHash = await hashPassword(generatedPassword);
+
+    if (parsed.data.departmentId) {
+      const department = await db.department.findUnique({
+        where: { id: parsed.data.departmentId },
+        select: { id: true },
+      });
+      if (!department) {
+        throw new HttpError(400, "Selected department does not exist");
+      }
+    }
 
     const employee = await db.user.create({
       data: {
@@ -104,6 +120,9 @@ export async function POST(request: Request) {
       employee,
     }, { status: 201 });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return Response.json({ error: "Invalid department selected" }, { status: 400 });
+    }
     return toErrorResponse(error);
   }
 }

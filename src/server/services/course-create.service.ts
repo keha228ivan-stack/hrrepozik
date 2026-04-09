@@ -47,7 +47,10 @@ export async function createCourseFromFormData(formData: FormData) {
     throw new HttpError(400, "One or more materials have unsupported format");
   }
 
-  const existing = await db.course.findFirst({ where: { title: { equals: title, mode: "insensitive" } }, select: { id: true } });
+  const existing = await db.course.findFirst({
+    where: { title },
+    select: { id: true },
+  });
   if (existing) {
     throw new HttpError(409, "Course with this title already exists");
   }

@@ -16,6 +16,9 @@ describe("manager employees routes integration", () => {
 
     vi.doMock("@/server/db", () => ({
       db: {
+        department: {
+          findUnique: async () => null,
+        },
         user: {
           findUnique: async () => null,
           create: async () => ({

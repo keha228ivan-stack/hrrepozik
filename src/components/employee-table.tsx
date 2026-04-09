@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { departments } from "@/lib/mock-data";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAuth } from "@/contexts/auth-context";
@@ -21,9 +20,15 @@ type EmployeeRow = {
   } | null;
 };
 
+type DepartmentOption = {
+  id: string;
+  name: string;
+};
+
 export function EmployeeTable() {
   const { authFetch } = useAuth();
   const [rows, setRows] = useState<EmployeeRow[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,13 +45,14 @@ export function EmployeeTable() {
     setIsLoading(true);
     setError(null);
     const response = await authFetch("/api/manager/employees");
-    const data = (await response.json()) as { employees?: EmployeeRow[]; error?: string };
+    const data = (await response.json()) as { employees?: EmployeeRow[]; departments?: DepartmentOption[]; error?: string };
     if (!response.ok) {
       setError(data.error ?? "Не удалось загрузить сотрудников");
       setIsLoading(false);
       return;
     }
     setRows(data.employees ?? []);
+    setDepartments(data.departments ?? []);
     setIsLoading(false);
   }, [authFetch]);
 
@@ -99,7 +105,7 @@ export function EmployeeTable() {
   const renderedRows = useMemo(() => rows.map((row) => {
     const department = departments.find((dep) => dep.id === row.departmentId);
     return { row, department };
-  }), [rows]);
+  }), [departments, rows]);
 
   return (
     <div className="space-y-4">
