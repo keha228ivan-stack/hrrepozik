@@ -16,6 +16,7 @@ describe("jwt auth", () => {
     process.env.JWT_SECRET = "test-secret";
     const token = signAccessToken({ user_id: "u-1", role: "manager" });
 
+    const token = signAccessToken({ user_id: "u-2", role: "manager" });
     const payload = verifyAccessToken(token);
     expect(payload).toEqual({ user_id: "u-1", role: "manager" });
   });
