@@ -17,7 +17,7 @@ export function toErrorResponse(error: unknown) {
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
-      return Response.json({ error: "User with this email already exists" }, { status: 409 });
+      return Response.json({ error: "Email already in use" }, { status: 409 });
     }
   }
 
