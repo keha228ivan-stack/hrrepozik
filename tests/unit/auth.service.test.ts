@@ -103,4 +103,19 @@ describe("auth.service manager-only", () => {
       message: "Database unavailable",
     });
   });
+
+  it("maps database url/configuration errors to 503", async () => {
+    findUniqueMock.mockRejectedValueOnce(new Error("Error validating datasource `db`: the URL must start with protocol `postgresql://`"));
+
+    await expect(registerUser({ fullName: "Offline User", email: "offline@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 503,
+      message: "Database unavailable",
+    });
+
+    findUniqueMock.mockRejectedValueOnce(new Error("Prisma Client could not parse DATABASE_URL"));
+    await expect(loginUser({ email: "offline@test.dev", password: "password123" })).rejects.toMatchObject<HttpError>({
+      statusCode: 503,
+      message: "Database unavailable",
+    });
+  });
 });

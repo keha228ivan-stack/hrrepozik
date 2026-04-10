@@ -34,6 +34,19 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const TOKEN_STORAGE_KEY = "hr_auth_token";
 
+async function readApiPayload(response: Response): Promise<unknown> {
+  const rawBody = await response.text();
+  if (!rawBody) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -93,13 +106,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? "Не удалось войти");
+        const message =
+          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "Не удалось войти";
+        throw new Error(message);
       }
 
-      const data = (await response.json()) as AuthResponse;
+      if (!payload || typeof payload !== "object" || !("access_token" in payload) || typeof payload.access_token !== "string") {
+        throw new Error("Не удалось войти");
+      }
+
+      const data = payload as AuthResponse;
       const currentUser = data.user ?? (await fetchCurrentUser(data.access_token));
       setToken(data.access_token);
       setUser(currentUser);
@@ -115,13 +136,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName, email, password }),
       });
+      const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? "Не удалось зарегистрироваться");
+        const message =
+          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "Не удалось зарегистрироваться";
+        throw new Error(message);
       }
 
-      const data = (await response.json()) as AuthResponse;
+      if (!payload || typeof payload !== "object" || !("access_token" in payload) || typeof payload.access_token !== "string") {
+        throw new Error("Не удалось зарегистрироваться");
+      }
+
+      const data = payload as AuthResponse;
       const currentUser = data.user ?? (await fetchCurrentUser(data.access_token));
       setToken(data.access_token);
       setUser(currentUser);

@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
 
+const PrismaClientConstructorValidationError = Prisma.PrismaClientConstructorValidationError as
+  | (new (...args: unknown[]) => Error)
+  | undefined;
+
 export class HttpError extends Error {
   statusCode: number;
 
@@ -38,6 +42,14 @@ export function toErrorResponse(error: unknown) {
   }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
+    return Response.json({ error: "Database unavailable" }, { status: 503 });
+  }
+
+  if (PrismaClientConstructorValidationError && error instanceof PrismaClientConstructorValidationError) {
+    return Response.json({ error: "Database unavailable" }, { status: 503 });
+  }
+
+  if (error instanceof Error && /database|datasource|DATABASE_URL|connection url|prisma/i.test(error.message)) {
     return Response.json({ error: "Database unavailable" }, { status: 503 });
   }
 

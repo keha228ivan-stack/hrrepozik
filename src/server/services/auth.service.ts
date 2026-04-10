@@ -15,6 +15,10 @@ type LoginInput = {
   password: string;
 };
 
+const PrismaClientConstructorValidationError = Prisma.PrismaClientConstructorValidationError as
+  | (new (...args: unknown[]) => Error)
+  | undefined;
+
 export type AuthUserProfile = {
   id: string;
   fullName: string;
@@ -66,8 +70,16 @@ function toRegistrationError(error: unknown): HttpError {
     return new HttpError(503, "Database unavailable");
   }
 
+  if (PrismaClientConstructorValidationError && error instanceof PrismaClientConstructorValidationError) {
+    return new HttpError(503, "Database unavailable");
+  }
+
   if (error instanceof Prisma.PrismaClientValidationError) {
     return new HttpError(400, "Invalid registration data");
+  }
+
+  if (error instanceof Error && /database|datasource|DATABASE_URL|connection url|prisma/i.test(error.message)) {
+    return new HttpError(503, "Database unavailable");
   }
 
   if (error instanceof Error && error.message) {
@@ -84,9 +96,14 @@ function toLoginError(error: unknown): HttpError {
 
   if (
     error instanceof Prisma.PrismaClientInitializationError ||
+    (PrismaClientConstructorValidationError && error instanceof PrismaClientConstructorValidationError) ||
     (error instanceof Prisma.PrismaClientKnownRequestError &&
       (error.code === "P1000" || error.code === "P1001" || error.code === "P1008"))
   ) {
+    return new HttpError(503, "Database unavailable");
+  }
+
+  if (error instanceof Error && /database|datasource|DATABASE_URL|connection url|prisma/i.test(error.message)) {
     return new HttpError(503, "Database unavailable");
   }
 
