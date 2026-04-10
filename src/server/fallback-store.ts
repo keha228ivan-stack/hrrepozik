@@ -1,14 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { CourseStatus, UserRole } from "@prisma/client";
+
+type FallbackUserRole = "MANAGER" | "EMPLOYEE";
+type FallbackCourseStatus = "draft" | "published" | "archived";
 
 type FallbackManager = {
   id: string;
   fullName: string;
   email: string;
   passwordHash: string;
-  role: UserRole.MANAGER;
+  role: FallbackUserRole;
 };
 
 type FallbackCourse = {
@@ -19,7 +21,7 @@ type FallbackCourse = {
   duration: string;
   description: string;
   instructor: string;
-  status: CourseStatus;
+  status: FallbackCourseStatus;
   createdAt: string;
   createdBy: string;
   lastEditedBy: string;
@@ -115,7 +117,7 @@ export function addFallbackManager(input: { fullName: string; email: string; pas
     fullName: input.fullName,
     email: input.email,
     passwordHash: input.passwordHash,
-    role: UserRole.MANAGER,
+    role: "MANAGER",
   };
   store.managers.push(manager);
   writeStore(store);
@@ -145,7 +147,7 @@ export function addFallbackCourse(input: {
     duration: input.duration,
     description: input.description,
     instructor: input.instructor,
-    status: CourseStatus.draft,
+    status: "draft",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     createdBy: input.actor,
@@ -235,7 +237,7 @@ export function updateFallbackCourse(courseId: string, updates: Partial<{
   duration: string;
   description: string;
   instructor: string;
-  status: CourseStatus;
+  status: FallbackCourseStatus;
   lastEditedBy: string;
 }>) {
   const store = readStore();
