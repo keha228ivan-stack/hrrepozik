@@ -35,13 +35,13 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const TOKEN_STORAGE_KEY = "hr_auth_token";
 
 async function readApiPayload(response: Response): Promise<unknown> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().includes("application/json")) {
+  const rawBody = await response.text();
+  if (!rawBody) {
     return null;
   }
 
   try {
-    return await response.json();
+    return JSON.parse(rawBody) as unknown;
   } catch {
     return null;
   }
