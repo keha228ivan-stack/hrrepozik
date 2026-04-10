@@ -51,6 +51,12 @@ function createFallbackDb(): DbShape {
 }
 
 function createDb(): DbShape {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (!databaseUrl) {
+    console.warn("DATABASE_URL is not set, using fallback auth store.");
+    return createFallbackDb();
+  }
+
   try {
     const { PrismaClient } = require("@prisma/client") as { PrismaClient: new (args: unknown) => { user: DbUserApi } };
     const globalForPrisma = globalThis as unknown as { prisma?: { user: DbUserApi } };
