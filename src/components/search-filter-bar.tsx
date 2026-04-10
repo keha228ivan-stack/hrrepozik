@@ -1,3 +1,5 @@
+"use client";
+
 import { Search } from "lucide-react";
 
 type DepartmentOption = {
@@ -7,24 +9,24 @@ type DepartmentOption = {
 
 interface SearchFilterBarProps {
   placeholder?: string;
-  query: string;
-  onQueryChange: (value: string) => void;
-  departmentId: string;
-  onDepartmentChange: (value: string) => void;
-  status: string;
-  onStatusChange: (value: string) => void;
-  departments: DepartmentOption[];
+  query?: string;
+  onQueryChange?: (value: string) => void;
+  departmentId?: string;
+  onDepartmentChange?: (value: string) => void;
+  status?: string;
+  onStatusChange?: (value: string) => void;
+  departments?: DepartmentOption[];
 }
 
 export function SearchFilterBar({
   placeholder = "Поиск...",
-  query,
-  onQueryChange,
-  departmentId,
-  onDepartmentChange,
-  status,
-  onStatusChange,
-  departments,
+  query = "",
+  onQueryChange = () => {},
+  departmentId = "",
+  onDepartmentChange = () => {},
+  status = "",
+  onStatusChange = () => {},
+  departments = [],
 }: SearchFilterBarProps) {
   return (
     <div className="mb-6 flex flex-wrap gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">

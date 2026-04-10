@@ -106,6 +106,11 @@ export function findFallbackManagerById(id: string) {
   return store.managers.find((manager) => manager.id === id) ?? null;
 }
 
+export function listFallbackManagers() {
+  const store = readStore();
+  return [...store.managers];
+}
+
 export function addFallbackManager(input: { fullName: string; email: string; passwordHash: string }) {
   const store = readStore();
   if (store.managers.some((manager) => manager.email === input.email)) {
@@ -228,6 +233,32 @@ export function listFallbackAssignmentsByUser(userId: string) {
 export function listFallbackAssignments() {
   const store = readStore();
   return [...store.assignments];
+}
+
+export function findFallbackAssignmentById(id: string) {
+  const store = readStore();
+  return store.assignments.find((assignment) => assignment.id === id) ?? null;
+}
+
+export function updateFallbackAssignment(
+  id: string,
+  updates: Partial<{
+    progress: number;
+    status: "CREATED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  }>,
+) {
+  const store = readStore();
+  const index = store.assignments.findIndex((assignment) => assignment.id === id);
+  if (index === -1) {
+    return null;
+  }
+
+  store.assignments[index] = {
+    ...store.assignments[index],
+    ...updates,
+  };
+  writeStore(store);
+  return store.assignments[index];
 }
 
 export function updateFallbackCourse(courseId: string, updates: Partial<{

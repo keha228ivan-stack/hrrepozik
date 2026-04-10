@@ -9,10 +9,15 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const payload = loginSchema.parse(await request.json());
+    const rawPayload: unknown = await request.json();
+    const payload = loginSchema.parse(rawPayload);
     const result = await loginUser(payload);
     return Response.json(result);
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+
     if (error instanceof z.ZodError) {
       return Response.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
