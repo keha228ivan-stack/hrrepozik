@@ -24,7 +24,7 @@ export function SearchFilterBar({
   onDepartmentChange,
   status,
   onStatusChange,
-  departments,
+  departments = [],
 }: SearchFilterBarProps) {
   return (
     <div className="mb-6 flex flex-wrap gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
