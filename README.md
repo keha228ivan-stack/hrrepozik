@@ -44,8 +44,13 @@ Create a `.env.local` file before running auth flows:
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hr_management?schema=public"
 JWT_SECRET="change-this-to-a-long-random-string"
 BCRYPT_SALT_ROUNDS="12"
+# Optional: proxy auth API calls to external backend
+# BACKEND_API_BASE_URL="http://localhost:8000"
+# BACKEND_API_PREFIX="/api"
 ```
 
 - `DATABASE_URL` is required by Prisma for registration/login queries.
 - `JWT_SECRET` is required to sign and verify access tokens.
 - `BCRYPT_SALT_ROUNDS` is optional; if set, this project expects a value between `10` and `15`.
+- `BACKEND_API_BASE_URL` is optional. When set, `/api/auth/login`, `/api/auth/register`, and `/api/auth/me` are proxied to your backend.
+- `BACKEND_API_PREFIX` is optional and defaults to `/api` (for example, `http://localhost:8000/api/auth/login`).
