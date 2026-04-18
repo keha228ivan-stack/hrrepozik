@@ -1,56 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Это проект на [Next.js](https://nextjs.org), созданный через [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Быстрый старт (PowerShell)
 
-First, run the development server:
+1. Установите зависимости:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```powershell
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Создайте файл `.env.local` (пример ниже в разделе переменных окружения).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Запустите проект:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+npm run dev
+```
 
-## Learn More
+4. Откройте [http://localhost:3000](http://localhost:3000) в браузере.
 
-To learn more about Next.js, take a look at the following resources:
+Можно редактировать страницы в `src/app/*` — изменения применяются автоматически.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Проект использует [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) для автоматической оптимизации и загрузки шрифта [Geist](https://vercel.com/font).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Полезные ссылки
 
-## Deploy on Vercel
+Чтобы подробнее изучить Next.js:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [Документация Next.js](https://nextjs.org/docs) — возможности и API.
+- [Learn Next.js](https://nextjs.org/learn) — интерактивный туториал.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Также можно посмотреть [репозиторий Next.js на GitHub](https://github.com/vercel/next.js).
+
+## Деплой на Vercel
+
+Самый простой способ задеплоить приложение — через [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
+
+Подробности: [документация по деплою Next.js](https://nextjs.org/docs/app/building-your-application/deploying).
 
 
-## Environment variables
+## Переменные окружения
 
-Create a `.env.local` file before running auth flows:
+Перед запуском auth-сценариев создайте `.env.local`.
 
-```bash
+### Вариант 1: вручную в редакторе
+
+```dotenv
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hr_management?schema=public"
 JWT_SECRET="change-this-to-a-long-random-string"
 BCRYPT_SALT_ROUNDS="12"
-# Optional: proxy auth API calls to external backend
+# Опционально: проксирование auth API на внешний backend
 # BACKEND_API_BASE_URL="http://localhost:8000"
 # BACKEND_API_PREFIX="/api"
 ```
 
-- `DATABASE_URL` is required by Prisma for registration/login queries.
-- `JWT_SECRET` is required to sign and verify access tokens.
-- `BCRYPT_SALT_ROUNDS` is optional; if set, this project expects a value between `10` and `15`.
-- `BACKEND_API_BASE_URL` is optional. When set, `/api/auth/login`, `/api/auth/register`, and `/api/auth/me` are proxied to your backend.
-- `BACKEND_API_PREFIX` is optional and defaults to `/api` (for example, `http://localhost:8000/api/auth/login`).
+### Вариант 2: командами PowerShell
+
+```powershell
+@"
+DATABASE_URL=""postgresql://postgres:postgres@localhost:5432/hr_management?schema=public""
+JWT_SECRET=""change-this-to-a-long-random-string""
+BCRYPT_SALT_ROUNDS=""12""
+# Опционально: проксирование auth API на внешний backend
+# BACKEND_API_BASE_URL=""http://localhost:8000""
+# BACKEND_API_PREFIX=""/api""
+"@ | Set-Content -Path .env.local
+```
+
+- `DATABASE_URL` — обязателен для Prisma (регистрация/логин и запросы к БД).
+- `JWT_SECRET` — обязателен для подписи и проверки access-токена.
+- `BCRYPT_SALT_ROUNDS` — опционально; если задан, ожидается число от `10` до `15`.
+- `BACKEND_API_BASE_URL` — опционально; при наличии включается проксирование `/api/auth/login`, `/api/auth/register`, `/api/auth/me` на внешний backend.
+- `BACKEND_API_PREFIX` — опционально; по умолчанию `/api` (например: `http://localhost:8000/api/auth/login`).
