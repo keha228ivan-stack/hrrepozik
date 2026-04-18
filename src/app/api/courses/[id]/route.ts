@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireAuth } from "@/server/auth/guard";
+import { isBackendProxyEnabled, proxyBackendRequest } from "@/server/backend-proxy";
 import { db } from "@/server/db";
 import { getCourseAuditMap, setCourseAudit } from "@/server/fallback-store";
 import { HttpError, toErrorResponse } from "@/server/http-error";
@@ -15,6 +16,14 @@ const updateCourseSchema = z.object({
 
 export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    if (isBackendProxyEnabled()) {
+      const { id } = await props.params;
+      return await proxyBackendRequest(new Request(_request.url, {
+        method: "GET",
+        headers: _request.headers,
+      }), `/courses/${id}`);
+    }
+
     const payload = await requireAuth();
     if (payload.role !== "manager") {
       throw new HttpError(403, "Manager access only");
@@ -46,6 +55,11 @@ export async function GET(_request: Request, props: { params: Promise<{ id: stri
 
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    if (isBackendProxyEnabled()) {
+      const { id } = await props.params;
+      return await proxyBackendRequest(request, `/courses/${id}`);
+    }
+
     const payload = await requireAuth();
     if (payload.role !== "manager") {
       throw new HttpError(403, "Manager access only");
@@ -73,6 +87,14 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
 export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    if (isBackendProxyEnabled()) {
+      const { id } = await props.params;
+      return await proxyBackendRequest(new Request(_request.url, {
+        method: "DELETE",
+        headers: _request.headers,
+      }), `/courses/${id}`);
+    }
+
     const payload = await requireAuth();
     if (payload.role !== "manager") {
       throw new HttpError(403, "Manager access only");
