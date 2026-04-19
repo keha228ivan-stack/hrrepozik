@@ -40,7 +40,8 @@ function normalizeRole(value: unknown): Role | null {
   }
 
   const normalized = value.trim().toLowerCase();
-  return normalized === "manager" ? "manager" : null;
+  const managerAliases = new Set(["manager", "admin", "superadmin", "super_admin", "hr_manager"]);
+  return managerAliases.has(normalized) ? "manager" : null;
 }
 
 function normalizeUser(value: unknown): AuthUser | null {
