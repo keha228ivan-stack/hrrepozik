@@ -63,6 +63,28 @@ function normalizeUser(value: unknown): AuthUser | null {
   return { id, fullName, email, role };
 }
 
+function extractAccessToken(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const candidate = payload as Record<string, unknown>;
+  const tokenCandidates = [
+    candidate.access_token,
+    candidate.accessToken,
+    candidate.token,
+    candidate.jwt,
+  ];
+
+  for (const token of tokenCandidates) {
+    if (typeof token === "string" && token.trim()) {
+      return token;
+    }
+  }
+
+  return null;
+}
+
 async function readApiPayload(response: Response): Promise<unknown> {
   const rawBody = await response.text();
   if (!rawBody) {
@@ -172,15 +194,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(getApiErrorMessage(payload, "Не удалось войти"));
       }
 
-      if (!payload || typeof payload !== "object" || !("access_token" in payload) || typeof payload.access_token !== "string") {
+      const accessToken = extractAccessToken(payload);
+
+      if (!accessToken) {
         throw new Error("Не удалось войти");
       }
 
       const data = payload as AuthResponse;
-      const currentUser = normalizeUser(data.user) ?? (await fetchCurrentUser(data.access_token));
-      setToken(data.access_token);
+      const currentUser = normalizeUser(data.user) ?? (await fetchCurrentUser(accessToken));
+      setToken(accessToken);
       setUser(currentUser);
-      persistToken(data.access_token);
+      persistToken(accessToken);
     },
     [fetchCurrentUser],
   );
@@ -198,15 +222,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(getApiErrorMessage(payload, "Не удалось зарегистрироваться"));
       }
 
-      if (!payload || typeof payload !== "object" || !("access_token" in payload) || typeof payload.access_token !== "string") {
+      const accessToken = extractAccessToken(payload);
+
+      if (!accessToken) {
         throw new Error("Не удалось зарегистрироваться");
       }
 
       const data = payload as AuthResponse;
-      const currentUser = normalizeUser(data.user) ?? (await fetchCurrentUser(data.access_token));
-      setToken(data.access_token);
+      const currentUser = normalizeUser(data.user) ?? (await fetchCurrentUser(accessToken));
+      setToken(accessToken);
       setUser(currentUser);
-      persistToken(data.access_token);
+      persistToken(accessToken);
     },
     [fetchCurrentUser],
   );
