@@ -1,5 +1,21 @@
-const BACKEND_API_BASE_URL = process.env.BACKEND_API_BASE_URL?.trim();
-const BACKEND_API_PREFIX = process.env.BACKEND_API_PREFIX?.trim() ?? "/api";
+function sanitizeEnvValue(value: string | undefined) {
+  if (!value) {
+    return value;
+  }
+
+  let result = value.trim();
+  while (
+    (result.startsWith("\"") && result.endsWith("\"")) ||
+    (result.startsWith("'") && result.endsWith("'"))
+  ) {
+    result = result.slice(1, -1).trim();
+  }
+
+  return result;
+}
+
+const BACKEND_API_BASE_URL = sanitizeEnvValue(process.env.BACKEND_API_BASE_URL);
+const BACKEND_API_PREFIX = sanitizeEnvValue(process.env.BACKEND_API_PREFIX) ?? "/api";
 
 function normalizePrefix(prefix: string) {
   if (!prefix) {
@@ -25,14 +41,19 @@ export function toBackendUrl(path: string) {
   const base = BACKEND_API_BASE_URL.replace(/\/+$/, "");
   const prefix = normalizePrefix(BACKEND_API_PREFIX).replace(/\/+$/, "");
   const normalizedPath = normalizePath(path);
-  return `${base}${prefix}${normalizedPath}`;
+  const fullUrl = `${base}${prefix}${normalizedPath}`;
+  try {
+    return new URL(fullUrl).toString();
+  } catch {
+    return null;
+  }
 }
 
 export async function proxyBackendRequest(request: Request, path: string) {
   const targetUrl = toBackendUrl(path);
 
   if (!targetUrl) {
-    throw new Error("Backend proxy is disabled");
+    throw new Error("Backend proxy is disabled or BACKEND_API_BASE_URL is invalid");
   }
 
   const method = request.method.toUpperCase();

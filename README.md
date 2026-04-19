@@ -45,24 +45,24 @@ npm run dev
 ### Вариант 1: вручную в редакторе
 
 ```dotenv
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hr_management?schema=public"
-JWT_SECRET="change-this-to-a-long-random-string"
-BCRYPT_SALT_ROUNDS="12"
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/hr_management?schema=public
+JWT_SECRET=change-this-to-a-long-random-string
+BCRYPT_SALT_ROUNDS=12
 # Опционально: проксирование auth API на внешний backend
-# BACKEND_API_BASE_URL="http://localhost:8000"
-# BACKEND_API_PREFIX="/api"
+# BACKEND_API_BASE_URL=http://localhost:8000
+# BACKEND_API_PREFIX=/api
 ```
 
 ### Вариант 2: командами PowerShell
 
 ```powershell
 @"
-DATABASE_URL=""postgresql://postgres:postgres@localhost:5432/hr_management?schema=public""
-JWT_SECRET=""change-this-to-a-long-random-string""
-BCRYPT_SALT_ROUNDS=""12""
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/hr_management?schema=public
+JWT_SECRET=change-this-to-a-long-random-string
+BCRYPT_SALT_ROUNDS=12
 # Опционально: проксирование auth API на внешний backend
-# BACKEND_API_BASE_URL=""http://localhost:8000""
-# BACKEND_API_PREFIX=""/api""
+# BACKEND_API_BASE_URL=http://localhost:8000
+# BACKEND_API_PREFIX=/api
 "@ | Set-Content -Path .env.local
 ```
 
