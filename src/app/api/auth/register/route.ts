@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isBackendProxyEnabled, toBackendUrl } from "@/server/backend-proxy";
+import { isBackendProxyEnabled, proxyBackendRequest } from "@/server/backend-proxy";
 import { registerUser } from "@/server/services/auth.service";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
@@ -17,6 +17,10 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    if (isBackendProxyEnabled()) {
+      return await proxyBackendRequest(request, "/auth/register");
+    }
+
     const rawPayload: unknown = await request.json();
     const payload = (rawPayload && typeof rawPayload === "object"
       ? rawPayload
