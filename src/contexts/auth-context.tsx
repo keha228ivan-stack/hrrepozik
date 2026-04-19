@@ -190,8 +190,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Unauthorized");
     }
 
-    const data = (await response.json()) as { user?: unknown };
-    const normalizedUser = normalizeUser(data.user);
+    const data = (await response.json()) as unknown;
+    const payload = (data && typeof data === "object") ? data as Record<string, unknown> : null;
+    const userCandidate = payload
+      ? (payload.user ?? (payload.data && typeof payload.data === "object"
+        ? (payload.data as Record<string, unknown>).user ?? payload.data
+        : payload))
+      : null;
+    const normalizedUser = normalizeUser(userCandidate);
     if (!normalizedUser) {
       throw new Error("Unauthorized");
     }
