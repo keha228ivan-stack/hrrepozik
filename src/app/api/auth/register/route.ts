@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isBackendProxyEnabled, proxyBackendRequest } from "@/server/backend-proxy";
+import { isBackendProxyEnabled, toBackendUrl } from "@/server/backend-proxy";
 import { registerUser } from "@/server/services/auth.service";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
@@ -17,10 +17,6 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    if (isBackendProxyEnabled()) {
-      return await proxyBackendRequest(request, "/auth/register");
-    }
-
     const rawPayload: unknown = await request.json();
     const payload = (rawPayload && typeof rawPayload === "object"
       ? rawPayload
@@ -39,6 +35,37 @@ export async function POST(request: Request) {
         error: parsed.error.issues[0]?.message ?? "Validation failed",
         details: parsed.error.issues,
       }, { status: 400 });
+    }
+
+    if (isBackendProxyEnabled()) {
+      const targetUrl = toBackendUrl("/auth/register");
+      if (!targetUrl) {
+        throw new Error("Backend proxy is disabled or BACKEND_API_BASE_URL is invalid");
+      }
+
+      const [firstName = "", ...lastNameParts] = (parsed.data.fullName ?? "").trim().split(/\s+/).filter(Boolean);
+      const lastName = lastNameParts.join(" ");
+
+      const upstreamResponse = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          fullName: parsed.data.fullName,
+          email: parsed.data.email,
+          password: parsed.data.password,
+        }),
+        cache: "no-store",
+      });
+
+      const responseBody = await upstreamResponse.text();
+      return new Response(responseBody, {
+        status: upstreamResponse.status,
+        headers: {
+          "Content-Type": upstreamResponse.headers.get("content-type") ?? "application/json",
+        },
+      });
     }
 
     const user = await registerUser(parsed.data);
