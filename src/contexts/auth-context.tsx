@@ -49,10 +49,21 @@ function normalizeUser(value: unknown): AuthUser | null {
   }
 
   const candidate = value as Record<string, unknown>;
-  const id = typeof candidate.id === "string" ? candidate.id : null;
+  const id = typeof candidate.id === "string" || typeof candidate.id === "number"
+    ? String(candidate.id)
+    : null;
+  const firstName = typeof candidate.firstName === "string"
+    ? candidate.firstName
+    : (typeof candidate.first_name === "string" ? candidate.first_name : "");
+  const lastName = typeof candidate.lastName === "string"
+    ? candidate.lastName
+    : (typeof candidate.last_name === "string" ? candidate.last_name : "");
+  const derivedFullName = `${firstName} ${lastName}`.trim();
   const fullName = typeof candidate.fullName === "string"
     ? candidate.fullName
-    : (typeof candidate.full_name === "string" ? candidate.full_name : null);
+    : (typeof candidate.full_name === "string"
+      ? candidate.full_name
+      : (typeof candidate.name === "string" ? candidate.name : derivedFullName || null));
   const email = typeof candidate.email === "string" ? candidate.email : null;
   const role = normalizeRole(candidate.role);
 
@@ -61,6 +72,31 @@ function normalizeUser(value: unknown): AuthUser | null {
   }
 
   return { id, fullName, email, role };
+}
+
+function extractApiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const candidate = payload as Record<string, unknown>;
+
+  if (typeof candidate.error === "string" && candidate.error.trim()) {
+    return candidate.error;
+  }
+
+  if (typeof candidate.message === "string" && candidate.message.trim()) {
+    return candidate.message;
+  }
+
+  if (Array.isArray(candidate.message)) {
+    const firstMessage = candidate.message.find((item) => typeof item === "string" && item.trim());
+    if (typeof firstMessage === "string") {
+      return firstMessage;
+    }
+  }
+
+  return fallback;
 }
 
 function extractAccessToken(payload: unknown): string | null {
@@ -191,7 +227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        throw new Error(getApiErrorMessage(payload, "Не удалось войти"));
+        const message = extractApiErrorMessage(payload, "Не удалось войти");
+        throw new Error(message);
       }
 
       const accessToken = extractAccessToken(payload);
@@ -219,7 +256,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        throw new Error(getApiErrorMessage(payload, "Не удалось зарегистрироваться"));
+        const message = extractApiErrorMessage(payload, "Не удалось зарегистрироваться");
+        throw new Error(message);
       }
 
       const accessToken = extractAccessToken(payload);
