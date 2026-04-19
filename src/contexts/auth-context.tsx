@@ -98,6 +98,32 @@ async function readApiPayload(response: Response): Promise<unknown> {
   }
 }
 
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  if ("message" in payload) {
+    const message = payload.message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+
+    if (Array.isArray(message)) {
+      const firstMessage = message.find((item) => typeof item === "string" && item.trim());
+      if (typeof firstMessage === "string") {
+        return firstMessage;
+      }
+    }
+  }
+
+  if ("error" in payload && typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
+  }
+
+  return fallback;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -165,11 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const message =
-          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
-            ? payload.error
-            : "Не удалось войти";
-        throw new Error(message);
+        throw new Error(getApiErrorMessage(payload, "Не удалось войти"));
       }
 
       const accessToken = extractAccessToken(payload);
@@ -197,11 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const message =
-          payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
-            ? payload.error
-            : "Не удалось зарегистрироваться";
-        throw new Error(message);
+        throw new Error(getApiErrorMessage(payload, "Не удалось зарегистрироваться"));
       }
 
       const accessToken = extractAccessToken(payload);
