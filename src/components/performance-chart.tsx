@@ -2,14 +2,12 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const data = [
-  { name: "Разработка", score: 88 },
-  { name: "Маркетинг", score: 81 },
-  { name: "Продажи", score: 76 },
-  { name: "HR", score: 85 },
-];
+type PerformanceChartData = {
+  name: string;
+  score: number;
+};
 
-export function PerformanceChart() {
+export function PerformanceChart({ data }: { data: PerformanceChartData[] }) {
   return (
     <div className="h-80 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold text-slate-900">Показатели по отделам</h3>
