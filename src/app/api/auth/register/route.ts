@@ -73,6 +73,37 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    if (isBackendProxyEnabled()) {
+      const targetUrl = toBackendUrl("/auth/register");
+      if (!targetUrl) {
+        throw new Error("Backend proxy is disabled or BACKEND_API_BASE_URL is invalid");
+      }
+
+      const [firstName = "", ...lastNameParts] = (parsed.data.fullName ?? "").trim().split(/\s+/).filter(Boolean);
+      const lastName = lastNameParts.join(" ");
+
+      const upstreamResponse = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          fullName: parsed.data.fullName,
+          email: parsed.data.email,
+          password: parsed.data.password,
+        }),
+        cache: "no-store",
+      });
+
+      const responseBody = await upstreamResponse.text();
+      return new Response(responseBody, {
+        status: upstreamResponse.status,
+        headers: {
+          "Content-Type": upstreamResponse.headers.get("content-type") ?? "application/json",
+        },
+      });
+    }
+
     const user = await registerUser(parsed.data);
     return Response.json(user, { status: 201 });
   } catch (error) {
