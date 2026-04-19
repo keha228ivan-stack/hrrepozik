@@ -1,11 +1,14 @@
-import { employeeProfiles, users } from "@/lib/mock-data";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
-export function TopPerformersCard() {
-  const top = employeeProfiles
-    .map((p) => ({ ...p, user: users.find((u) => u.id === p.userId) }))
-    .sort((a, b) => b.performance - a.performance)
-    .slice(0, 3);
+type TopPerformer = {
+  userId: string;
+  fullName: string;
+  progress: number;
+  completed: number;
+};
+
+export function TopPerformersCard({ performers }: { performers: TopPerformer[] }) {
+  const top = performers.slice(0, 3);
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -14,12 +17,14 @@ export function TopPerformersCard() {
         {top.map((item) => (
           <div key={item.userId}>
             <div className="mb-1 flex justify-between text-sm">
-              <span className="font-medium text-slate-800">{item.user?.fullName}</span>
-              <span className="text-slate-500">{item.performance}%</span>
+              <span className="font-medium text-slate-800">{item.fullName}</span>
+              <span className="text-slate-500">{item.progress}%</span>
             </div>
-            <ProgressBar value={item.performance} />
+            <ProgressBar value={item.progress} />
+            <p className="mt-1 text-xs text-slate-500">Завершено курсов: {item.completed}</p>
           </div>
         ))}
+        {!top.length ? <p className="text-sm text-slate-500">Пока нет данных.</p> : null}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { proxyBackendRequest, isBackendProxyEnabled } from "@/server/backend-proxy";
 import { loginUser } from "@/server/services/auth.service";
 import { toErrorResponse } from "@/server/http-error";
 
@@ -9,6 +10,10 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    if (isBackendProxyEnabled()) {
+      return await proxyBackendRequest(request, "/auth/login");
+    }
+
     const rawPayload: unknown = await request.json();
     const payload = loginSchema.parse(rawPayload);
     const result = await loginUser(payload);
