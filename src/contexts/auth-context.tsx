@@ -234,8 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const message = extractApiErrorMessage(payload, "Не удалось войти");
-        throw new Error(message);
+        throw new Error(getApiErrorMessage(payload, "Не удалось войти"));
       }
 
       const accessToken = extractAccessToken(payload);
@@ -263,8 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = await readApiPayload(response);
 
       if (!response.ok) {
-        const message = extractApiErrorMessage(payload, "Не удалось зарегистрироваться");
-        throw new Error(message);
+        throw new Error(getApiErrorMessage(payload, "Не удалось зарегистрироваться"));
       }
 
       const accessToken = extractAccessToken(payload);

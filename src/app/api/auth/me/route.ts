@@ -6,7 +6,11 @@ import { HttpError, toErrorResponse } from "@/server/http-error";
 export async function GET(request: Request) {
   try {
     if (isBackendProxyEnabled()) {
-      return await proxyBackendRequest(request, "/auth/me");
+      try {
+        return await proxyBackendRequest(request, "/auth/me");
+      } catch (proxyError) {
+        console.warn("GET /api/auth/me proxy failed, falling back to local auth service", proxyError);
+      }
     }
 
     const payload = await requireAuth();

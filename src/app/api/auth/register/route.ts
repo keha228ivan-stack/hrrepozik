@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isBackendProxyEnabled, proxyBackendRequest } from "@/server/backend-proxy";
+import { isBackendProxyEnabled, toBackendUrl } from "@/server/backend-proxy";
 import { registerUser } from "@/server/services/auth.service";
 import { HttpError, toErrorResponse } from "@/server/http-error";
 
@@ -17,42 +17,6 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    if (isBackendProxyEnabled()) {
-      const rawPayload: unknown = await request.json();
-      const payload = (rawPayload && typeof rawPayload === "object"
-        ? rawPayload
-        : {}) as Record<string, unknown>;
-
-      const fullNameRaw = String(payload.fullName ?? payload.full_name ?? payload.name ?? "").trim();
-      const email = String(payload.email ?? "").trim();
-      const password = String(payload.password ?? payload.pass ?? "");
-
-      const [firstNamePart, ...lastNameParts] = fullNameRaw.split(/\s+/).filter(Boolean);
-      const firstName = String(payload.firstName ?? payload.first_name ?? firstNamePart ?? "").trim();
-      const lastName = String(payload.lastName ?? payload.last_name ?? lastNameParts.join(" ") ?? "").trim();
-
-      const upstreamPayload = {
-        firstName: firstName || "Пользователь",
-        lastName: lastName || "БезФамилии",
-        email,
-        password,
-      };
-
-      return await proxyBackendRequest(
-        new Request(request.url, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...(request.headers.get("authorization")
-              ? { authorization: request.headers.get("authorization") as string }
-              : {}),
-          },
-          body: JSON.stringify(upstreamPayload),
-        }),
-        "/auth/register",
-      );
-    }
-
     const rawPayload: unknown = await request.json();
     const payload = (rawPayload && typeof rawPayload === "object"
       ? rawPayload
@@ -82,26 +46,30 @@ export async function POST(request: Request) {
       const [firstName = "", ...lastNameParts] = (parsed.data.fullName ?? "").trim().split(/\s+/).filter(Boolean);
       const lastName = lastNameParts.join(" ");
 
-      const upstreamResponse = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          fullName: parsed.data.fullName,
-          email: parsed.data.email,
-          password: parsed.data.password,
-        }),
-        cache: "no-store",
-      });
+      try {
+        const upstreamResponse = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            fullName: parsed.data.fullName,
+            email: parsed.data.email,
+            password: parsed.data.password,
+          }),
+          cache: "no-store",
+        });
 
-      const responseBody = await upstreamResponse.text();
-      return new Response(responseBody, {
-        status: upstreamResponse.status,
-        headers: {
-          "Content-Type": upstreamResponse.headers.get("content-type") ?? "application/json",
-        },
-      });
+        const responseBody = await upstreamResponse.text();
+        return new Response(responseBody, {
+          status: upstreamResponse.status,
+          headers: {
+            "Content-Type": upstreamResponse.headers.get("content-type") ?? "application/json",
+          },
+        });
+      } catch (proxyError) {
+        console.warn("POST /api/auth/register proxy failed, falling back to local auth service", proxyError);
+      }
     }
 
     const user = await registerUser(parsed.data);
