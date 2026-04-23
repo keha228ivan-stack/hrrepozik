@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { proxyBackendRequest, isBackendProxyEnabled } from "@/server/backend-proxy";
+import { isBackendProxyEnabled, toBackendUrl } from "@/server/backend-proxy";
 import { loginUser } from "@/server/services/auth.service";
 import { toErrorResponse } from "@/server/http-error";
 
@@ -10,12 +10,35 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    if (isBackendProxyEnabled()) {
-      return await proxyBackendRequest(request, "/auth/login");
-    }
-
     const rawPayload: unknown = await request.json();
     const payload = loginSchema.parse(rawPayload);
+
+    if (isBackendProxyEnabled()) {
+      const targetUrl = toBackendUrl("/auth/login");
+      if (!targetUrl) {
+        throw new Error("Backend proxy is disabled or BACKEND_API_BASE_URL is invalid");
+      }
+
+      try {
+        const upstreamResponse = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        });
+
+        const responseBody = await upstreamResponse.text();
+        return new Response(responseBody, {
+          status: upstreamResponse.status,
+          headers: {
+            "Content-Type": upstreamResponse.headers.get("content-type") ?? "application/json",
+          },
+        });
+      } catch (proxyError) {
+        console.warn("POST /api/auth/login proxy failed, falling back to local auth service", proxyError);
+      }
+    }
+
     const result = await loginUser(payload);
     return Response.json(result);
   } catch (error) {
