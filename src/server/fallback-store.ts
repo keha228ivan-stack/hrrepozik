@@ -60,6 +60,16 @@ type FallbackStore = {
     createdAt: string;
     updatedAt: string;
   }[];
+  notifications: {
+    id: string;
+    title: string;
+    description: string;
+    type: string;
+    isRead: boolean;
+    createdAt: string;
+    employeeId: string | null;
+    courseId: string | null;
+  }[];
 };
 
 const FALLBACK_STORE_PATH = join(process.cwd(), ".data", "fallback-store.json");
@@ -70,7 +80,7 @@ function ensureStoreFile() {
     mkdirSync(dir, { recursive: true });
   }
   if (!existsSync(FALLBACK_STORE_PATH)) {
-    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [], employees: [], assignments: [], courseAudit: [] }), "utf8");
+    writeFileSync(FALLBACK_STORE_PATH, JSON.stringify({ managers: [], courses: [], employees: [], assignments: [], courseAudit: [], notifications: [] }), "utf8");
   }
 }
 
@@ -85,9 +95,10 @@ function readStore(): FallbackStore {
       employees: parsed.employees ?? [],
       assignments: parsed.assignments ?? [],
       courseAudit: parsed.courseAudit ?? [],
+      notifications: parsed.notifications ?? [],
     };
   } catch {
-    return { managers: [], courses: [], employees: [], assignments: [], courseAudit: [] };
+    return { managers: [], courses: [], employees: [], assignments: [], courseAudit: [], notifications: [] };
   }
 }
 
@@ -200,6 +211,32 @@ export function addFallbackEmployee(input: {
 export function listFallbackEmployees() {
   const store = readStore();
   return [...store.employees];
+}
+
+export function updateFallbackEmployee(
+  id: string,
+  updates: Partial<{ fullName: string; departmentId: string | null; position: string; status: "active" | "onboarding" | "vacation" | "inactive" }>,
+) {
+  const store = readStore();
+  const index = store.employees.findIndex((employee) => employee.id === id);
+  if (index === -1) return null;
+  const current = store.employees[index];
+  store.employees[index] = {
+    ...current,
+    fullName: updates.fullName ?? current.fullName,
+    departmentId: updates.departmentId ?? current.departmentId,
+    employeeProfile: {
+      ...current.employeeProfile,
+      position: updates.position ?? current.employeeProfile.position,
+      status: updates.status ?? current.employeeProfile.status,
+    },
+  };
+  writeStore(store);
+  return store.employees[index];
+}
+
+export function archiveFallbackEmployee(id: string) {
+  return updateFallbackEmployee(id, { status: "inactive" });
 }
 
 export function addFallbackAssignment(input: {
@@ -331,6 +368,45 @@ export function setCourseAudit(input: {
     }
   }
   writeStore(store);
+}
+
+export function listFallbackNotifications() {
+  const store = readStore();
+  return [...store.notifications].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+}
+
+export function addFallbackNotification(input: {
+  title: string;
+  description: string;
+  type: string;
+  employeeId?: string | null;
+  courseId?: string | null;
+}) {
+  const store = readStore();
+  const notification = {
+    id: randomUUID(),
+    title: input.title,
+    description: input.description,
+    type: input.type,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    employeeId: input.employeeId ?? null,
+    courseId: input.courseId ?? null,
+  };
+  store.notifications.push(notification);
+  writeStore(store);
+  return notification;
+}
+
+export function markFallbackNotificationAsRead(id: string) {
+  const store = readStore();
+  const index = store.notifications.findIndex((item) => item.id === id);
+  if (index === -1) {
+    return null;
+  }
+  store.notifications[index] = { ...store.notifications[index], isRead: true };
+  writeStore(store);
+  return store.notifications[index];
 }
 
 export function getCourseAuditMap() {
