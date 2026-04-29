@@ -19,6 +19,9 @@ export async function createCourseFromFormData(formData: FormData) {
   const duration = readString(formData, "duration");
   const description = readString(formData, "description");
   const instructor = readString(formData, "instructor");
+  const quizTitle = readString(formData, "quizTitle");
+  const quizQuestionsRaw = readString(formData, "quizQuestionsRaw");
+  const passingScoreRaw = readString(formData, "passingScore");
 
   if (!title || !category || !level || !duration || !description || !instructor) {
     throw new HttpError(400, "All course fields are required");
@@ -82,6 +85,36 @@ export async function createCourseFromFormData(formData: FormData) {
       status: true,
     },
   });
+
+  const quizQuestions = quizQuestionsRaw
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const passingScore = Number(passingScoreRaw || "70");
+  const canCreateQuiz = typeof (db as Record<string, unknown>).quiz === "object" && (db as { quiz?: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz?.create;
+  if (quizTitle && quizQuestions.length && canCreateQuiz) {
+    await (db as { quiz: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz.create({
+      data: {
+        courseId: createdCourse.id,
+        title: quizTitle,
+        passingScore: Number.isFinite(passingScore) ? Math.min(100, Math.max(1, passingScore)) : 70,
+        durationMinutes: 15,
+        questions: {
+          create: quizQuestions.map((question) => ({
+            question,
+            answerType: "single",
+            points: 1,
+            options: {
+              create: [
+                { text: "Верно", isCorrect: true },
+                { text: "Неверно", isCorrect: false },
+              ],
+            },
+          })),
+        },
+      },
+    });
+  }
 
   return {
     message: "Course created successfully",

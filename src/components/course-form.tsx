@@ -23,6 +23,9 @@ export function CourseForm() {
       duration: "",
       description: "",
       instructor: "",
+      quizTitle: "",
+      passingScore: 70,
+      quizQuestionsRaw: "",
     },
   });
 
@@ -76,6 +79,9 @@ export function CourseForm() {
     payload.append("duration", values.duration);
     payload.append("description", values.description);
     payload.append("instructor", values.instructor);
+    payload.append("quizTitle", values.quizTitle ?? "");
+    payload.append("passingScore", String(values.passingScore ?? ""));
+    payload.append("quizQuestionsRaw", values.quizQuestionsRaw ?? "");
     for (const video of videoFiles) {
       payload.append("videos", video);
     }
@@ -148,6 +154,16 @@ export function CourseForm() {
             />
             <textarea className="hidden" {...form.register("description")} />
             <p className="mt-1 text-xs text-rose-600">{form.formState.errors.description?.message}</p>
+          </div>
+          <div>
+            <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Тест: название (необязательно)" {...form.register("quizTitle")} />
+          </div>
+          <div>
+            <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="number" min={1} max={100} placeholder="Проходной балл % (по умолчанию 70)" {...form.register("passingScore", { valueAsNumber: true })} />
+          </div>
+          <div className="md:col-span-2">
+            <textarea className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" rows={3} placeholder="Вопросы теста (необязательно). Формат: по одному вопросу на строку." {...form.register("quizQuestionsRaw")} />
+            <p className="mt-1 text-xs text-slate-500">Если оставить пустым — курс создастся без теста.</p>
           </div>
         </div>
 
