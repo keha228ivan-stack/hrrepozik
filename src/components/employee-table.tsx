@@ -38,6 +38,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [isMutatingId, setIsMutatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [formState, setFormState] = useState({
@@ -153,6 +154,39 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
       return { row, department };
     }), [departmentId, departments, normalizedQuery, rows, status]);
 
+  const archiveEmployee = async (id: string, fullName: string) => {
+    if (!window.confirm(`Архивировать сотрудника «${fullName}»?`)) return;
+    setIsMutatingId(id);
+    try {
+      const response = await authFetch(`/api/manager/employees/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("archive");
+      await loadEmployees();
+    } catch {
+      setError("Не удалось архивировать сотрудника.");
+    } finally {
+      setIsMutatingId(null);
+    }
+  };
+
+  const editEmployeeName = async (row: EmployeeRow) => {
+    const nextName = window.prompt("Новое ФИО сотрудника", row.fullName)?.trim();
+    if (!nextName || nextName === row.fullName) return;
+    setIsMutatingId(row.id);
+    try {
+      const response = await authFetch(`/api/manager/employees/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName: nextName }),
+      });
+      if (!response.ok) throw new Error("patch");
+      await loadEmployees();
+    } catch {
+      setError("Не удалось обновить сотрудника.");
+    } finally {
+      setIsMutatingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-5">
@@ -181,7 +215,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-sm text-slate-500">
               <tr>
-                {["ФИО", "Email", "Должность", "Отдел", "Статус", "Эффективность", "Курсы"].map((head) => (
+                {["ФИО", "Email", "Должность", "Отдел", "Статус", "Эффективность", "Курсы", "Действия"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
@@ -200,11 +234,17 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
+                  <td className="px-4 py-3">
+                    <div className="inline-flex gap-2">
+                      <button type="button" className="rounded-lg border border-slate-200 px-2 py-1 text-xs" onClick={() => void editEmployeeName(row)} disabled={isMutatingId === row.id}>Редактировать</button>
+                      <button type="button" className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-700" onClick={() => void archiveEmployee(row.id, row.fullName)} disabled={isMutatingId === row.id}>Архив</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!renderedRows.length ? (
                 <tr className="border-t border-slate-100 text-sm">
-                  <td className="px-4 py-6 text-slate-500" colSpan={7}>Сотрудники по выбранным фильтрам не найдены.</td>
+                  <td className="px-4 py-6 text-slate-500" colSpan={8}>Сотрудники по выбранным фильтрам не найдены.</td>
                 </tr>
               ) : null}
             </tbody>

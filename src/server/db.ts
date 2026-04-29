@@ -4,6 +4,7 @@ import {
   addFallbackAssignment,
   addFallbackCourse,
   addFallbackEmployee,
+  archiveFallbackEmployee,
   addFallbackManager,
   deleteFallbackCourse,
   findFallbackAssignmentById,
@@ -16,6 +17,7 @@ import {
   listFallbackManagers,
   updateFallbackAssignment,
   updateFallbackCourse,
+  updateFallbackEmployee,
 } from "@/server/fallback-store";
 
 type UserRecord = {
@@ -30,6 +32,7 @@ type DbUserApi = {
   findUnique(args: { where: { id?: string; email?: string }; select?: Record<string, unknown> }): Promise<UserRecord | null>;
   findMany(args?: Record<string, unknown>): Promise<UserRecord[]>;
   create(args: { data: Record<string, unknown>; select?: Record<string, unknown> }): Promise<UserRecord>;
+  update(args: { where: { id: string }; data: Record<string, unknown>; select?: Record<string, unknown> }): Promise<UserRecord>;
 };
 
 type DbShape = {
@@ -138,6 +141,22 @@ function createFallbackDb(): DbShape {
         throw error;
       }
       return applySelect(created as unknown as Record<string, unknown>, select) as unknown as UserRecord;
+    },
+    async update({ where, data, select }: { where: { id: string }; data: Record<string, unknown>; select?: Record<string, unknown> }) {
+      if (data.employeeProfile && typeof data.employeeProfile === "object" && "update" in data.employeeProfile) {
+        const profileUpdate = (data.employeeProfile as { update?: Record<string, unknown> }).update ?? {};
+        const updated = updateFallbackEmployee(where.id, {
+          fullName: data.fullName as string | undefined,
+          departmentId: (data.departmentId as string | null | undefined) ?? undefined,
+          position: profileUpdate.position as string | undefined,
+          status: profileUpdate.status as "active" | "onboarding" | "vacation" | "inactive" | undefined,
+        });
+        if (!updated) throw new Error("Employee not found");
+        return applySelect(updated as unknown as Record<string, unknown>, select) as unknown as UserRecord;
+      }
+      const archived = archiveFallbackEmployee(where.id);
+      if (!archived) throw new Error("Employee not found");
+      return applySelect(archived as unknown as Record<string, unknown>, select) as unknown as UserRecord;
     },
   };
 

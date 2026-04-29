@@ -213,6 +213,32 @@ export function listFallbackEmployees() {
   return [...store.employees];
 }
 
+export function updateFallbackEmployee(
+  id: string,
+  updates: Partial<{ fullName: string; departmentId: string | null; position: string; status: "active" | "onboarding" | "vacation" | "inactive" }>,
+) {
+  const store = readStore();
+  const index = store.employees.findIndex((employee) => employee.id === id);
+  if (index === -1) return null;
+  const current = store.employees[index];
+  store.employees[index] = {
+    ...current,
+    fullName: updates.fullName ?? current.fullName,
+    departmentId: updates.departmentId ?? current.departmentId,
+    employeeProfile: {
+      ...current.employeeProfile,
+      position: updates.position ?? current.employeeProfile.position,
+      status: updates.status ?? current.employeeProfile.status,
+    },
+  };
+  writeStore(store);
+  return store.employees[index];
+}
+
+export function archiveFallbackEmployee(id: string) {
+  return updateFallbackEmployee(id, { status: "inactive" });
+}
+
 export function addFallbackAssignment(input: {
   userId: string;
   courseId: string;
