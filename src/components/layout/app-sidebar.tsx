@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, BookOpen, FileBarChart2, Home, LibraryBig, Users } from "lucide-react";
+import { Bell, BookOpen, FileBarChart2, Home, LibraryBig, UserCircle2, Users } from "lucide-react";
 import { isNavLinkActive } from "@/components/layout/sidebar-utils";
 
 const managerNav = [
@@ -12,6 +12,7 @@ const managerNav = [
   { href: "/manager/courses", label: "Библиотека курсов", icon: LibraryBig },
   { href: "/manager/reports", label: "Отчёты", icon: FileBarChart2 },
   { href: "/manager/notifications", label: "Уведомления", icon: Bell },
+  { href: "/manager/profile", label: "Профиль", icon: UserCircle2 },
 ];
 
 export function AppSidebar() {
