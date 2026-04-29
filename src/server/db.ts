@@ -287,6 +287,10 @@ function createDb(): DbShape {
     console.warn("DATABASE_URL is not set, using fallback auth store.");
     return createFallbackDb();
   }
+  if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
+    console.warn("DATABASE_URL has invalid protocol, using fallback auth store.");
+    return createFallbackDb();
+  }
 
   try {
     const { PrismaClient } = require("@prisma/client") as { PrismaClient: new (args: unknown) => { user: DbUserApi } };
