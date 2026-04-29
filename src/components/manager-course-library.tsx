@@ -56,6 +56,10 @@ export function ManagerCourseLibrary() {
           setError("Доступ к библиотеке курсов открыт только менеджерам.");
           return;
         }
+        if (response.status >= 500) {
+          setError("Не удалось загрузить курсы. Попробуйте обновить страницу.");
+          return;
+        }
         setError(data.error ?? "Не удалось загрузить библиотеку курсов. Проверьте соединение и попробуйте снова.");
         return;
       }
