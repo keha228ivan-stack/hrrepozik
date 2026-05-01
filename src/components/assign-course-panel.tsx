@@ -23,7 +23,7 @@ type EnrollmentView = {
   status: string;
   progress: number;
   createdAt: string;
-  course: {
+  course?: {
     id: string;
     title: string;
     category: string;
@@ -192,7 +192,7 @@ export function AssignCoursePanel() {
           <div className="mt-2 space-y-2">
             {assignedCourses.length ? assignedCourses.map((assignment) => (
               <div key={assignment.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
-                <p className="font-medium text-slate-800">{assignment.course.title}</p>
+                <p className="font-medium text-slate-800">{assignment.course?.title ?? "Курс недоступен"}</p>
                 <p className="mt-1 text-xs text-slate-500">Прогресс: {assignment.progress}% · Назначен: {new Date(assignment.createdAt).toLocaleDateString()}</p>
                 <div className="mt-1">
                   <StatusBadge status={assignment.status} />
