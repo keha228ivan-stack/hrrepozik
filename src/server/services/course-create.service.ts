@@ -21,6 +21,7 @@ export async function createCourseFromFormData(formData: FormData) {
   const instructor = readString(formData, "instructor");
   const quizTitle = readString(formData, "quizTitle");
   const quizQuestionsRaw = readString(formData, "quizQuestionsRaw");
+  const quizQuestionsJson = readString(formData, "quizQuestionsJson");
   const passingScoreRaw = readString(formData, "passingScore");
 
   if (!title || !category || !level || !duration || !description || !instructor) {
@@ -90,9 +91,47 @@ export async function createCourseFromFormData(formData: FormData) {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean);
+  const structuredQuestions = (() => {
+    if (!quizQuestionsJson) return [];
+    try {
+      const parsed = JSON.parse(quizQuestionsJson) as Array<{ question?: string; options?: string[]; correctOption?: string }>;
+      return parsed
+        .map((item) => ({
+          question: String(item.question ?? "").trim(),
+          options: Array.isArray(item.options) ? item.options.map((option) => String(option).trim()).filter(Boolean) : [],
+          correctOption: String(item.correctOption ?? "A").trim().toUpperCase(),
+        }))
+        .filter((item) => item.question && item.options.length >= 2);
+    } catch {
+      return [];
+    }
+  })();
   const passingScore = Number(passingScoreRaw || "70");
   const canCreateQuiz = typeof (db as Record<string, unknown>).quiz === "object" && (db as { quiz?: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz?.create;
-  if (quizTitle && quizQuestions.length && canCreateQuiz) {
+  if (quizTitle && (quizQuestions.length || structuredQuestions.length) && canCreateQuiz) {
+    const questionsToCreate = structuredQuestions.length
+      ? structuredQuestions.map((item) => ({
+          question: item.question,
+          answerType: "single",
+          points: 1,
+          options: {
+            create: item.options.map((option, optionIndex) => ({
+              text: option,
+              isCorrect: optionIndex === Math.max(0, Math.min(3, item.correctOption.charCodeAt(0) - 65)),
+            })),
+          },
+        }))
+      : quizQuestions.map((question) => ({
+          question,
+          answerType: "single",
+          points: 1,
+          options: {
+            create: [
+              { text: "Верно", isCorrect: true },
+              { text: "Неверно", isCorrect: false },
+            ],
+          },
+        }));
     await (db as { quiz: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz.create({
       data: {
         courseId: createdCourse.id,
@@ -100,17 +139,7 @@ export async function createCourseFromFormData(formData: FormData) {
         passingScore: Number.isFinite(passingScore) ? Math.min(100, Math.max(1, passingScore)) : 70,
         durationMinutes: 15,
         questions: {
-          create: quizQuestions.map((question) => ({
-            question,
-            answerType: "single",
-            points: 1,
-            options: {
-              create: [
-                { text: "Верно", isCorrect: true },
-                { text: "Неверно", isCorrect: false },
-              ],
-            },
-          })),
+          create: questionsToCreate,
         },
       },
     });
