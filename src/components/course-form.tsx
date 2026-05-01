@@ -227,6 +227,47 @@ export function CourseForm() {
               + Добавить урок
             </button>
           </div>
+          <div className="md:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
+            <p className="text-sm font-semibold text-slate-800">Тест с вариантами ответов</p>
+            {quizQuestions.map((item, index) => (
+              <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder={`Вопрос ${index + 1}`}
+                  value={item.question}
+                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, question: event.target.value } : q)))}
+                />
+                <div className="grid gap-2 md:grid-cols-2">
+                  {(["optionA", "optionB", "optionC", "optionD"] as const).map((key, optionIndex) => (
+                    <input
+                      key={key}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      placeholder={`Вариант ${String.fromCharCode(65 + optionIndex)}`}
+                      value={item[key]}
+                      onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, [key]: event.target.value } : q)))}
+                    />
+                  ))}
+                </div>
+                <select
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={item.correctOption}
+                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, correctOption: event.target.value } : q)))}
+                >
+                  <option value="A">Правильный вариант: A</option>
+                  <option value="B">Правильный вариант: B</option>
+                  <option value="C">Правильный вариант: C</option>
+                  <option value="D">Правильный вариант: D</option>
+                </select>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setQuizQuestions((prev) => [...prev, { question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }])}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
+            >
+              + Добавить вопрос
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
