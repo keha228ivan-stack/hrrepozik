@@ -20,10 +20,11 @@ export async function createCourseFromFormData(formData: FormData) {
   const description = readString(formData, "description");
   const instructor = readString(formData, "instructor");
   const quizTitle = readString(formData, "quizTitle");
-  const quizQuestionsRaw = readString(formData, "quizQuestionsRaw");
+  const quizQuestionsJson = readString(formData, "quizQuestionsJson");
+  const lessonsJson = readString(formData, "lessonsJson");
   const passingScoreRaw = readString(formData, "passingScore");
 
-  if (!title || !category || !level || !duration || !description || !instructor) {
+  if (!title || !category || !duration || !description) {
     throw new HttpError(400, "All course fields are required");
   }
 
@@ -55,10 +56,10 @@ export async function createCourseFromFormData(formData: FormData) {
     data: {
       title,
       category,
-      level,
+      level: level || "Базовый",
       duration,
       description,
-      instructor,
+      instructor: instructor || "Внутренний курс",
       status: CourseStatus.draft,
       attachments: {
         create: [
@@ -86,13 +87,76 @@ export async function createCourseFromFormData(formData: FormData) {
     },
   });
 
-  const quizQuestions = quizQuestionsRaw
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const lessons = (() => {
+    if (!lessonsJson) return [];
+    try {
+      const parsed = JSON.parse(lessonsJson) as Array<{ title?: string; duration?: string; content?: string; fileNames?: string[] }>;
+      return parsed
+        .map((item, index) => ({
+          title: String(item.title ?? "").trim(),
+          duration: String(item.duration ?? "").trim(),
+          content: String(item.content ?? "").trim(),
+          fileNames: Array.isArray(item.fileNames) ? item.fileNames.map((name) => String(name).trim()).filter(Boolean) : [],
+          index,
+        }))
+        .filter((item) => item.title && item.duration);
+    } catch {
+      return [];
+    }
+  })();
+  if (lessons.length) {
+    const lessonAttachments = lessons.flatMap((lesson) =>
+      formData.getAll(`lessonFiles:${lesson.index}`).map(asFile).filter(Boolean).map((file) => ({
+        courseId: createdCourse.id,
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        url: `uploads/lesson-materials/${Date.now()}-${file.name}`,
+        lessonIndex: lesson.index,
+      })),
+    );
+    if (lessonAttachments.length) {
+      await db.courseAttachment.createMany({
+        data: lessonAttachments.map(({ courseId, name, type, url }) => ({ courseId, name, type, url })),
+      });
+    }
+    await db.courseModule.createMany({
+      data: lessons.map((lesson) => ({
+        courseId: createdCourse.id,
+        title: lesson.title,
+        description: `${lesson.content || "Содержание урока не указано"}${lesson.fileNames.length ? `\nФайлы: ${lesson.fileNames.join(", ")}` : ""}`,
+        duration: lesson.duration,
+      })),
+    });
+  }
+  const structuredQuestions = (() => {
+    if (!quizQuestionsJson) return [];
+    try {
+      const parsed = JSON.parse(quizQuestionsJson) as Array<{ question?: string; options?: string[]; correctOption?: string }>;
+      return parsed
+        .map((item) => ({
+          question: String(item.question ?? "").trim(),
+          options: Array.isArray(item.options) ? item.options.map((option) => String(option).trim()).filter(Boolean) : [],
+          correctOption: String(item.correctOption ?? "A").trim().toUpperCase(),
+        }))
+        .filter((item) => item.question && item.options.length >= 2);
+    } catch {
+      return [];
+    }
+  })();
   const passingScore = Number(passingScoreRaw || "70");
   const canCreateQuiz = typeof (db as Record<string, unknown>).quiz === "object" && (db as { quiz?: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz?.create;
-  if (quizTitle && quizQuestions.length && canCreateQuiz) {
+  if (quizTitle && structuredQuestions.length && canCreateQuiz) {
+    const questionsToCreate = structuredQuestions.map((item) => ({
+      question: item.question,
+      answerType: "single",
+      points: 1,
+      options: {
+        create: item.options.map((option, optionIndex) => ({
+          text: option,
+          isCorrect: optionIndex === Math.max(0, Math.min(3, item.correctOption.charCodeAt(0) - 65)),
+        })),
+      },
+    }));
     await (db as { quiz: { create: (args: Record<string, unknown>) => Promise<unknown> } }).quiz.create({
       data: {
         courseId: createdCourse.id,
@@ -100,17 +164,7 @@ export async function createCourseFromFormData(formData: FormData) {
         passingScore: Number.isFinite(passingScore) ? Math.min(100, Math.max(1, passingScore)) : 70,
         durationMinutes: 15,
         questions: {
-          create: quizQuestions.map((question) => ({
-            question,
-            answerType: "single",
-            points: 1,
-            options: {
-              create: [
-                { text: "Верно", isCorrect: true },
-                { text: "Неверно", isCorrect: false },
-              ],
-            },
-          })),
+          create: questionsToCreate,
         },
       },
     });

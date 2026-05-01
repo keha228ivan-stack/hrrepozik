@@ -13,6 +13,8 @@ function fileSizeLabel(bytes: number) {
 }
 
 export function CourseForm() {
+  const [quizQuestions, setQuizQuestions] = useState([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
+  const [lessons, setLessons] = useState([{ title: "", duration: "", content: "", files: [] as File[] }]);
   const { authFetch } = useAuth();
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -25,7 +27,8 @@ export function CourseForm() {
       instructor: "",
       quizTitle: "",
       passingScore: 70,
-      quizQuestionsRaw: "",
+      quizQuestionsJson: "",
+      lessonsJson: "",
     },
   });
 
@@ -36,9 +39,9 @@ export function CourseForm() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [createdCourse, setCreatedCourse] = useState<{ id: string; title: string; status: string; category?: string; level?: string; duration?: string; instructor?: string } | null>(null);
 
-  const [descriptionValue, titleValue, categoryValue, durationValue, levelValue, instructorValue] = useWatch({
+  const [descriptionValue, titleValue, categoryValue, durationValue] = useWatch({
     control: form.control,
-    name: ["description", "title", "category", "duration", "level", "instructor"],
+    name: ["description", "title", "category", "duration"],
   });
 
   const sampleVideo = videoFiles[0] ?? null;
@@ -75,13 +78,32 @@ export function CourseForm() {
     const payload = new FormData();
     payload.append("title", values.title);
     payload.append("category", values.category);
-    payload.append("level", values.level);
+    payload.append("level", values.level?.trim() || "Базовый");
     payload.append("duration", values.duration);
     payload.append("description", values.description);
-    payload.append("instructor", values.instructor);
+    payload.append("instructor", values.instructor?.trim() || "Внутренний курс");
     payload.append("quizTitle", values.quizTitle ?? "");
     payload.append("passingScore", String(values.passingScore ?? ""));
-    payload.append("quizQuestionsRaw", values.quizQuestionsRaw ?? "");
+    const normalizedQuizQuestions = quizQuestions
+      .map((item) => ({
+        question: item.question.trim(),
+        options: [item.optionA.trim(), item.optionB.trim(), item.optionC.trim(), item.optionD.trim()].filter(Boolean),
+        correctOption: item.correctOption,
+      }))
+      .filter((item) => item.question && item.options.length >= 2);
+    payload.append("quizQuestionsJson", JSON.stringify(normalizedQuizQuestions));
+    const normalizedLessons = lessons
+      .map((lesson) => ({
+        title: lesson.title.trim(),
+        duration: lesson.duration.trim(),
+        content: lesson.content.trim(),
+        fileNames: lesson.files.map((file) => file.name),
+      }))
+      .filter((lesson) => lesson.title && lesson.duration);
+    payload.append("lessonsJson", JSON.stringify(normalizedLessons));
+    lessons.forEach((lesson, lessonIndex) => {
+      lesson.files.forEach((file) => payload.append(`lessonFiles:${lessonIndex}`, file));
+    });
     for (const video of videoFiles) {
       payload.append("videos", video);
     }
@@ -106,6 +128,8 @@ export function CourseForm() {
     form.reset();
     setVideoFiles([]);
     setMaterialFiles([]);
+    setQuizQuestions([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
+    setLessons([{ title: "", duration: "", content: "", files: [] }]);
     setIsPreviewOpen(false);
   });
 
@@ -122,16 +146,8 @@ export function CourseForm() {
             <p className="mt-1 text-xs text-rose-600">{form.formState.errors.category?.message}</p>
           </div>
           <div>
-            <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Уровень сложности" {...form.register("level")} />
-            <p className="mt-1 text-xs text-rose-600">{form.formState.errors.level?.message}</p>
-          </div>
-          <div>
             <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность" {...form.register("duration")} />
             <p className="mt-1 text-xs text-rose-600">{form.formState.errors.duration?.message}</p>
-          </div>
-          <div>
-            <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Преподаватель" {...form.register("instructor")} />
-            <p className="mt-1 text-xs text-rose-600">{form.formState.errors.instructor?.message}</p>
           </div>
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-medium text-slate-700">Описание курса (rich text)</label>
@@ -161,9 +177,69 @@ export function CourseForm() {
           <div>
             <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" type="number" min={1} max={100} placeholder="Проходной балл % (по умолчанию 70)" {...form.register("passingScore", { valueAsNumber: true })} />
           </div>
-          <div className="md:col-span-2">
-            <textarea className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" rows={3} placeholder="Вопросы теста (необязательно). Формат: по одному вопросу на строку." {...form.register("quizQuestionsRaw")} />
-            <p className="mt-1 text-xs text-slate-500">Если оставить пустым — курс создастся без теста.</p>
+          <div className="md:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
+            <p className="text-sm font-semibold text-slate-800">Тест с вариантами ответов</p>
+            {quizQuestions.map((item, index) => (
+              <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder={`Вопрос ${index + 1}`}
+                  value={item.question}
+                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, question: event.target.value } : q)))}
+                />
+                <div className="grid gap-2 md:grid-cols-2">
+                  {(["optionA", "optionB", "optionC", "optionD"] as const).map((key, optionIndex) => (
+                    <input
+                      key={key}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      placeholder={`Вариант ${String.fromCharCode(65 + optionIndex)}`}
+                      value={item[key]}
+                      onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, [key]: event.target.value } : q)))}
+                    />
+                  ))}
+                </div>
+                <select
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={item.correctOption}
+                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, correctOption: event.target.value } : q)))}
+                >
+                  <option value="A">Правильный вариант: A</option>
+                  <option value="B">Правильный вариант: B</option>
+                  <option value="C">Правильный вариант: C</option>
+                  <option value="D">Правильный вариант: D</option>
+                </select>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setQuizQuestions((prev) => [...prev, { question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }])}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
+            >
+              + Добавить вопрос
+            </button>
+          </div>
+          <div className="md:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
+            <p className="text-sm font-semibold text-slate-800">Уроки курса</p>
+            {lessons.map((lesson, index) => (
+              <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="grid gap-2 md:grid-cols-2">
+                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={`Урок ${index + 1}: название`} value={lesson.title} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)))} />
+                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность урока" value={lesson.duration} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, duration: event.target.value } : item)))} />
+                </div>
+                <textarea className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" rows={2} placeholder="Содержание урока: текст, ссылки, описание материалов" value={lesson.content} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, content: event.target.value } : item)))} />
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*,video/*"
+                  multiple
+                  onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, files: Array.from(event.target.files ?? []) } : item)))}
+                />
+                {lesson.files.length ? <p className="text-xs text-slate-500">Файлы урока: {lesson.files.map((file) => file.name).join(", ")}</p> : null}
+              </div>
+            ))}
+            <button type="button" onClick={() => setLessons((prev) => [...prev, { title: "", duration: "", content: "", files: [] }])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+              + Добавить урок
+            </button>
           </div>
         </div>
 
@@ -231,8 +307,7 @@ export function CourseForm() {
             </div>
 
             <h4 className="text-2xl font-semibold">{titleValue || "Название курса"}</h4>
-            <p className="mt-2 text-sm text-slate-600">{categoryValue || "Категория"} · {durationValue || "Длительность"} · {levelValue || "Уровень"}</p>
-            <p className="mt-1 text-sm text-slate-500">Преподаватель: {instructorValue || "Не указан"}</p>
+            <p className="mt-2 text-sm text-slate-600">{categoryValue || "Категория"} · {durationValue || "Длительность"}</p>
             <div className="prose prose-sm mt-4 max-w-none rounded-xl border border-slate-100 bg-slate-50 p-4" dangerouslySetInnerHTML={{ __html: descriptionValue || "<p>Описание появится здесь</p>" }} />
 
             {sampleVideoPreviewUrl ? (
