@@ -45,7 +45,8 @@ export async function createEnrollmentWithNotification(input: CreateEnrollmentIn
 
     return result;
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    const code = (error as { code?: string } | null)?.code;
+    if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") || code === "P2002") {
       throw new HttpError(409, "Enrollment already exists");
     }
     throw error;

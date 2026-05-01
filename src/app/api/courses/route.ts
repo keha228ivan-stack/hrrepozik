@@ -7,7 +7,11 @@ import { createCourseFromFormData, listCoursesWithFallback } from "@/server/serv
 export async function GET(request: Request) {
   try {
     if (isBackendProxyEnabled()) {
-      return await proxyBackendRequest(request, "/courses");
+      try {
+        return await proxyBackendRequest(request, "/courses");
+      } catch (proxyError) {
+        console.warn("GET /api/courses proxy failed, falling back to local course service", proxyError);
+      }
     }
 
     const payload = await requireAuth();
