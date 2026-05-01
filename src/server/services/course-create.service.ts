@@ -90,12 +90,14 @@ export async function createCourseFromFormData(formData: FormData) {
   const lessons = (() => {
     if (!lessonsJson) return [];
     try {
-      const parsed = JSON.parse(lessonsJson) as Array<{ title?: string; description?: string; duration?: string }>;
+      const parsed = JSON.parse(lessonsJson) as Array<{ title?: string; duration?: string; content?: string; fileNames?: string[] }>;
       return parsed
-        .map((item) => ({
+        .map((item, index) => ({
           title: String(item.title ?? "").trim(),
-          description: String(item.description ?? "").trim() || "Описание урока",
           duration: String(item.duration ?? "").trim(),
+          content: String(item.content ?? "").trim(),
+          fileNames: Array.isArray(item.fileNames) ? item.fileNames.map((name) => String(name).trim()).filter(Boolean) : [],
+          index,
         }))
         .filter((item) => item.title && item.duration);
     } catch {
@@ -103,11 +105,25 @@ export async function createCourseFromFormData(formData: FormData) {
     }
   })();
   if (lessons.length) {
+    const lessonAttachments = lessons.flatMap((lesson) =>
+      formData.getAll(`lessonFiles:${lesson.index}`).map(asFile).filter(Boolean).map((file) => ({
+        courseId: createdCourse.id,
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        url: `uploads/lesson-materials/${Date.now()}-${file.name}`,
+        lessonIndex: lesson.index,
+      })),
+    );
+    if (lessonAttachments.length) {
+      await db.courseAttachment.createMany({
+        data: lessonAttachments.map(({ courseId, name, type, url }) => ({ courseId, name, type, url })),
+      });
+    }
     await db.courseModule.createMany({
       data: lessons.map((lesson) => ({
         courseId: createdCourse.id,
         title: lesson.title,
-        description: lesson.description,
+        description: `${lesson.content || "Содержание урока не указано"}${lesson.fileNames.length ? `\nФайлы: ${lesson.fileNames.join(", ")}` : ""}`,
         duration: lesson.duration,
       })),
     });

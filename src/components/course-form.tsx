@@ -14,7 +14,7 @@ function fileSizeLabel(bytes: number) {
 
 export function CourseForm() {
   const [quizQuestions, setQuizQuestions] = useState([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
-  const [lessons, setLessons] = useState([{ title: "", description: "", duration: "" }]);
+  const [lessons, setLessons] = useState([{ title: "", duration: "", content: "", files: [] as File[] }]);
   const { authFetch } = useAuth();
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -95,11 +95,15 @@ export function CourseForm() {
     const normalizedLessons = lessons
       .map((lesson) => ({
         title: lesson.title.trim(),
-        description: lesson.description.trim(),
         duration: lesson.duration.trim(),
+        content: lesson.content.trim(),
+        fileNames: lesson.files.map((file) => file.name),
       }))
       .filter((lesson) => lesson.title && lesson.duration);
     payload.append("lessonsJson", JSON.stringify(normalizedLessons));
+    lessons.forEach((lesson, lessonIndex) => {
+      lesson.files.forEach((file) => payload.append(`lessonFiles:${lessonIndex}`, file));
+    });
     for (const video of videoFiles) {
       payload.append("videos", video);
     }
@@ -125,7 +129,7 @@ export function CourseForm() {
     setVideoFiles([]);
     setMaterialFiles([]);
     setQuizQuestions([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
-    setLessons([{ title: "", description: "", duration: "" }]);
+    setLessons([{ title: "", duration: "", content: "", files: [] }]);
     setIsPreviewOpen(false);
   });
 
@@ -217,55 +221,24 @@ export function CourseForm() {
           <div className="md:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
             <p className="text-sm font-semibold text-slate-800">Уроки курса</p>
             {lessons.map((lesson, index) => (
-              <div key={index} className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 md:grid-cols-3">
+              <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="grid gap-2 md:grid-cols-2">
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={`Урок ${index + 1}: название`} value={lesson.title} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)))} />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность урока" value={lesson.duration} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, duration: event.target.value } : item)))} />
-                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Описание урока (необязательно)" value={lesson.description} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, description: event.target.value } : item)))} />
-              </div>
-            ))}
-            <button type="button" onClick={() => setLessons((prev) => [...prev, { title: "", description: "", duration: "" }])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
-              + Добавить урок
-            </button>
-          </div>
-          <div className="md:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
-            <p className="text-sm font-semibold text-slate-800">Тест с вариантами ответов</p>
-            {quizQuestions.map((item, index) => (
-              <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                </div>
+                <textarea className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" rows={2} placeholder="Содержание урока: текст, ссылки, описание материалов" value={lesson.content} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, content: event.target.value } : item)))} />
                 <input
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder={`Вопрос ${index + 1}`}
-                  value={item.question}
-                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, question: event.target.value } : q)))}
+                  type="file"
+                  accept=".pdf,.doc,.docx,image/*,video/*"
+                  multiple
+                  onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, files: Array.from(event.target.files ?? []) } : item)))}
                 />
-                <div className="grid gap-2 md:grid-cols-2">
-                  {(["optionA", "optionB", "optionC", "optionD"] as const).map((key, optionIndex) => (
-                    <input
-                      key={key}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      placeholder={`Вариант ${String.fromCharCode(65 + optionIndex)}`}
-                      value={item[key]}
-                      onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, [key]: event.target.value } : q)))}
-                    />
-                  ))}
-                </div>
-                <select
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={item.correctOption}
-                  onChange={(event) => setQuizQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, correctOption: event.target.value } : q)))}
-                >
-                  <option value="A">Правильный вариант: A</option>
-                  <option value="B">Правильный вариант: B</option>
-                  <option value="C">Правильный вариант: C</option>
-                  <option value="D">Правильный вариант: D</option>
-                </select>
+                {lesson.files.length ? <p className="text-xs text-slate-500">Файлы урока: {lesson.files.map((file) => file.name).join(", ")}</p> : null}
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() => setQuizQuestions((prev) => [...prev, { question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }])}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
-            >
-              + Добавить вопрос
+            <button type="button" onClick={() => setLessons((prev) => [...prev, { title: "", duration: "", content: "", files: [] }])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+              + Добавить урок
             </button>
           </div>
         </div>
