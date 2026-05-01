@@ -1,16 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, PlayCircle, Upload, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { courseSchema, type CourseFormValues } from "@/lib/course-form-schema";
 import { useAuth } from "@/contexts/auth-context";
-
-function fileSizeLabel(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function CourseForm() {
   const [quizQuestions, setQuizQuestions] = useState([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
@@ -32,8 +27,6 @@ export function CourseForm() {
     },
   });
 
-  const [videoFiles, setVideoFiles] = useState<File[]>([]);
-  const [materialFiles, setMaterialFiles] = useState<File[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -44,36 +37,20 @@ export function CourseForm() {
     name: ["description", "title", "category", "duration"],
   });
 
-  const sampleVideo = videoFiles[0] ?? null;
-  const sampleVideoPreviewUrl = useMemo(() => (sampleVideo ? URL.createObjectURL(sampleVideo) : null), [sampleVideo]);
-  const materialPreviews = useMemo(
-    () => materialFiles.map((material) => ({ name: material.name, url: URL.createObjectURL(material) })),
-    [materialFiles],
+  const lessonFilePreviews = useMemo(
+    () => lessons.flatMap((lesson) => lesson.files.map((file) => ({ name: file.name, url: URL.createObjectURL(file) }))),
+    [lessons],
   );
-
   useEffect(() => () => {
-    if (sampleVideoPreviewUrl) URL.revokeObjectURL(sampleVideoPreviewUrl);
-  }, [sampleVideoPreviewUrl]);
-
-  useEffect(() => () => {
-    for (const preview of materialPreviews) {
+    for (const preview of lessonFilePreviews) {
       URL.revokeObjectURL(preview.url);
     }
-  }, [materialPreviews]);
+  }, [lessonFilePreviews]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmitError(null);
     setSubmitSuccess(null);
     setCreatedCourse(null);
-
-    if (videoFiles.length === 0) {
-      setSubmitError("Добавьте хотя бы одно видео");
-      return;
-    }
-    if (videoFiles.some((video) => !video.type.startsWith("video/"))) {
-      setSubmitError("Разрешены только видео-файлы");
-      return;
-    }
 
     const payload = new FormData();
     payload.append("title", values.title);
@@ -104,12 +81,6 @@ export function CourseForm() {
     lessons.forEach((lesson, lessonIndex) => {
       lesson.files.forEach((file) => payload.append(`lessonFiles:${lessonIndex}`, file));
     });
-    for (const video of videoFiles) {
-      payload.append("videos", video);
-    }
-    for (const material of materialFiles) {
-      payload.append("materials", material);
-    }
 
     const response = await authFetch("/api/courses", {
       method: "POST",
@@ -126,8 +97,6 @@ export function CourseForm() {
     setSubmitSuccess(data.message ?? "Курс успешно создан");
     setCreatedCourse(data.course ?? null);
     form.reset();
-    setVideoFiles([]);
-    setMaterialFiles([]);
     setQuizQuestions([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
     setLessons([{ title: "", duration: "", content: "", files: [] }]);
     setIsPreviewOpen(false);
@@ -181,6 +150,17 @@ export function CourseForm() {
             <p className="text-sm font-semibold text-slate-800">Тест с вариантами ответов</p>
             {quizQuestions.map((item, index) => (
               <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-slate-500">Вопрос {index + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => setQuizQuestions((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)))}
+                    disabled={quizQuestions.length === 1}
+                    className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Удалить вопрос
+                  </button>
+                </div>
                 <input
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   placeholder={`Вопрос ${index + 1}`}
@@ -222,6 +202,17 @@ export function CourseForm() {
             <p className="text-sm font-semibold text-slate-800">Уроки курса</p>
             {lessons.map((lesson, index) => (
               <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-slate-500">Урок {index + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => setLessons((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)))}
+                    disabled={lessons.length === 1}
+                    className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Удалить урок
+                  </button>
+                </div>
                 <div className="grid gap-2 md:grid-cols-2">
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={`Урок ${index + 1}: название`} value={lesson.title} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)))} />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность урока" value={lesson.duration} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, duration: event.target.value } : item)))} />
@@ -241,38 +232,6 @@ export function CourseForm() {
               + Добавить урок
             </button>
           </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600 shadow-sm">
-            <span className="mb-2 flex items-center gap-2 font-medium"><PlayCircle className="h-4 w-4" />Видео-материалы</span>
-            <input
-              className="w-full text-sm"
-              type="file"
-              accept="video/*"
-              multiple
-              onChange={(event) => setVideoFiles(Array.from(event.target.files ?? []))}
-            />
-            {videoFiles.length ? <p className="mt-2 text-xs text-slate-500">Файлов: {videoFiles.length}</p> : null}
-          </label>
-
-          <label className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600 shadow-sm">
-            <span className="mb-2 flex items-center gap-2 font-medium"><Upload className="h-4 w-4" />Доп. материалы</span>
-            <input
-              className="w-full text-sm"
-              type="file"
-              accept=".pdf,.doc,.docx,image/*"
-              multiple
-              onChange={(event) => setMaterialFiles(Array.from(event.target.files ?? []))}
-            />
-            {materialFiles.length ? (
-              <div className="mt-2 space-y-1 text-xs text-slate-500">
-                {materialFiles.map((material) => (
-                  <p key={material.name}>{material.name} · {fileSizeLabel(material.size)}</p>
-                ))}
-              </div>
-            ) : null}
-          </label>
         </div>
 
         {submitError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p> : null}
@@ -310,18 +269,11 @@ export function CourseForm() {
             <p className="mt-2 text-sm text-slate-600">{categoryValue || "Категория"} · {durationValue || "Длительность"}</p>
             <div className="prose prose-sm mt-4 max-w-none rounded-xl border border-slate-100 bg-slate-50 p-4" dangerouslySetInnerHTML={{ __html: descriptionValue || "<p>Описание появится здесь</p>" }} />
 
-            {sampleVideoPreviewUrl ? (
+            {lessonFilePreviews.length ? (
               <div className="mt-5">
-                <p className="mb-2 text-sm font-medium text-slate-700">Пример видео</p>
-                <video controls className="w-full rounded-xl" src={sampleVideoPreviewUrl} />
-              </div>
-            ) : null}
-
-            {materialFiles.length ? (
-              <div className="mt-5">
-                <p className="mb-2 text-sm font-medium text-slate-700">Прикреплённые материалы</p>
+                <p className="mb-2 text-sm font-medium text-slate-700">Материалы уроков</p>
                 <ul className="space-y-1 text-sm text-slate-600">
-                  {materialPreviews.map((preview) => (
+                  {lessonFilePreviews.map((preview) => (
                     <li key={preview.name} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                       <a href={preview.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
                         {preview.name}

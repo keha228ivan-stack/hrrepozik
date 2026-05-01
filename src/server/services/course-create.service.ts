@@ -28,22 +28,6 @@ export async function createCourseFromFormData(formData: FormData) {
     throw new HttpError(400, "All course fields are required");
   }
 
-  const videos = formData.getAll("videos").map(asFile).filter(Boolean);
-  if (!videos.length) {
-    throw new HttpError(400, "At least one video file is required");
-  }
-  if (videos.some((video) => !video.type.startsWith("video/"))) {
-    throw new HttpError(400, "Videos must be valid video files");
-  }
-
-  const materials = formData.getAll("materials").map(asFile).filter(Boolean);
-  const hasInvalidMaterial = materials.some(
-    (material) => material.type && !material.type.startsWith("video/") && !material.type.startsWith("image/") && !material.type.includes("pdf") && !material.type.includes("word") && !material.type.includes("document"),
-  );
-  if (hasInvalidMaterial) {
-    throw new HttpError(400, "One or more materials have unsupported format");
-  }
-
   const existing = await db.course.findFirst({
     where: { title },
     select: { id: true },
@@ -61,20 +45,6 @@ export async function createCourseFromFormData(formData: FormData) {
       description,
       instructor: instructor || "Внутренний курс",
       status: CourseStatus.draft,
-      attachments: {
-        create: [
-          ...videos.map((video) => ({
-            name: video.name,
-            type: video.type || "video/*",
-            url: `uploads/videos/${Date.now()}-${video.name}`,
-          })),
-          ...materials.map((material) => ({
-            name: material.name,
-            type: material.type || "application/octet-stream",
-            url: `uploads/materials/${Date.now()}-${material.name}`,
-          })),
-        ],
-      },
     },
     select: {
       id: true,

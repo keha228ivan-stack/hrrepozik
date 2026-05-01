@@ -45,7 +45,7 @@ describe("manager course routes integration", () => {
     });
   });
 
-  it("returns 400 when required files are missing", async () => {
+  it("creates a course without top-level files", async () => {
     vi.doMock("@/server/auth/guard", () => ({
       requireAuth: async () => ({ user_id: "m-1", role: "manager" }),
     }));
@@ -76,9 +76,9 @@ describe("manager course routes integration", () => {
       }),
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
-      error: "At least one video file is required",
+      message: "Course created successfully",
     });
   });
 });
