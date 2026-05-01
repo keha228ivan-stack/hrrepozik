@@ -10,6 +10,7 @@ export const courseSchema = z.object({
   quizTitle: z.string().trim().optional(),
   passingScore: z.coerce.number().min(1).max(100).optional(),
   quizQuestionsRaw: z.string().trim().optional(),
+  quizQuestionsJson: z.string().trim().optional(),
 });
 
 export type CourseFormValues = z.infer<typeof courseSchema>;
