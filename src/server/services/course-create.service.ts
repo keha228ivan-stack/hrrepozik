@@ -60,16 +60,15 @@ export async function createCourseFromFormData(formData: FormData) {
   const lessons = (() => {
     if (!lessonsJson) return [];
     try {
-      const parsed = JSON.parse(lessonsJson) as Array<{ title?: string; duration?: string; content?: string; fileNames?: string[] }>;
+      const parsed = JSON.parse(lessonsJson) as Array<{ title?: string; content?: string; fileNames?: string[] }>;
       return parsed
         .map((item, index) => ({
           title: String(item.title ?? "").trim(),
-          duration: String(item.duration ?? "").trim(),
           content: String(item.content ?? "").trim(),
           fileNames: Array.isArray(item.fileNames) ? item.fileNames.map((name) => String(name).trim()).filter(Boolean) : [],
           index,
         }))
-        .filter((item) => item.title && item.duration);
+        .filter((item) => item.title);
     } catch {
       return [];
     }
@@ -94,7 +93,7 @@ export async function createCourseFromFormData(formData: FormData) {
         courseId: createdCourse.id,
         title: lesson.title,
         description: `${lesson.content || "Содержание урока не указано"}${lesson.fileNames.length ? `\nФайлы: ${lesson.fileNames.join(", ")}` : ""}`,
-        duration: lesson.duration,
+        duration: "—",
       })),
     });
   }
