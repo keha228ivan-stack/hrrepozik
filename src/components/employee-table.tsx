@@ -213,17 +213,17 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-sm text-slate-500">
               <tr>
-                {["ФИО", "Email", "Должность", "Курсы", "Действия"].map((head) => (
+                {["ФИО", "Email", "Отдел", "Курсы", "Действия"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {renderedRows.map(({ row }) => (
+              {renderedRows.map(({ row, department }) => (
                 <tr key={row.id} className="border-t border-slate-100 text-sm">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
                   <td className="px-4 py-3 text-slate-600">{row.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{row.employeeProfile?.position ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{department?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
                   <td className="px-4 py-3">
                     <div className="inline-flex gap-2">
