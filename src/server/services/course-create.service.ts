@@ -74,6 +74,10 @@ export async function createCourseFromFormData(formData: FormData) {
     }
   })();
   if (lessons.length) {
+    const canCreateAttachment = typeof (db as Record<string, unknown>).courseAttachment === "object"
+      && typeof (db as { courseAttachment?: { createMany?: (args: Record<string, unknown>) => Promise<unknown> } }).courseAttachment?.createMany === "function";
+    const canCreateCourseModule = typeof (db as Record<string, unknown>).courseModule === "object"
+      && typeof (db as { courseModule?: { createMany?: (args: Record<string, unknown>) => Promise<unknown> } }).courseModule?.createMany === "function";
     const lessonAttachments = lessons.flatMap((lesson) =>
       formData.getAll(`lessonFiles:${lesson.index}`).map(asFile).filter(Boolean).map((file) => ({
         courseId: createdCourse.id,
@@ -83,19 +87,21 @@ export async function createCourseFromFormData(formData: FormData) {
         lessonIndex: lesson.index,
       })),
     );
-    if (lessonAttachments.length) {
+    if (lessonAttachments.length && canCreateAttachment) {
       await db.courseAttachment.createMany({
         data: lessonAttachments.map(({ courseId, name, type, url }) => ({ courseId, name, type, url })),
       });
     }
-    await db.courseModule.createMany({
-      data: lessons.map((lesson) => ({
-        courseId: createdCourse.id,
-        title: lesson.title,
-        description: `${lesson.content || "Содержание урока не указано"}${lesson.fileNames.length ? `\nФайлы: ${lesson.fileNames.join(", ")}` : ""}`,
-        duration: "—",
-      })),
-    });
+    if (canCreateCourseModule) {
+      await db.courseModule.createMany({
+        data: lessons.map((lesson) => ({
+          courseId: createdCourse.id,
+          title: lesson.title,
+          description: `${lesson.content || "Содержание урока не указано"}${lesson.fileNames.length ? `\nФайлы: ${lesson.fileNames.join(", ")}` : ""}`,
+          duration: "—",
+        })),
+      });
+    }
   }
   const structuredQuestions = (() => {
     if (!quizQuestionsJson) return [];
