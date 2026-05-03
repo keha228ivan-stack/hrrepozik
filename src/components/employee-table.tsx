@@ -213,7 +213,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-sm text-slate-500">
               <tr>
-                {["ФИО", "Email", "Должность", "Отдел", "Курсы", "Действия"].map((head) => (
+                {["ФИО", "Email", "Отдел", "Курсы", "Действия"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
@@ -223,7 +223,6 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
                 <tr key={row.id} className="border-t border-slate-100 text-sm">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
                   <td className="px-4 py-3 text-slate-600">{row.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{row.employeeProfile?.position ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{department?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
                   <td className="px-4 py-3">
@@ -236,7 +235,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
               ))}
               {!renderedRows.length ? (
                 <tr className="border-t border-slate-100 text-sm">
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>Сотрудники по выбранным фильтрам не найдены.</td>
+                  <td className="px-4 py-6 text-slate-500" colSpan={5}>Сотрудники по выбранным фильтрам не найдены.</td>
                 </tr>
               ) : null}
             </tbody>
