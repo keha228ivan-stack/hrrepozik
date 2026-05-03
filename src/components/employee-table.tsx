@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { useAuth } from "@/contexts/auth-context";
 
 type EmployeeRow = {
@@ -12,7 +10,6 @@ type EmployeeRow = {
   email: string;
   departmentId: string | null;
   employeeProfile: {
-    position: string;
     status: "active" | "onboarding" | "vacation" | "inactive";
     performance: number;
     completedCourses: number;
@@ -44,7 +41,6 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
   const [formState, setFormState] = useState({
     fullName: "",
     email: "",
-    position: "",
     departmentId: "",
     status: "onboarding",
   });
@@ -84,7 +80,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
     event.preventDefault();
     setError(null);
     setSuccess(null);
-    if (!formState.fullName || !formState.email || !formState.position) {
+    if (!formState.fullName || !formState.email) {
       setError("Заполните обязательные поля");
       return;
     }
@@ -114,7 +110,6 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
       setFormState({
         fullName: "",
         email: "",
-        position: "",
         departmentId: "",
         status: "onboarding",
       });
@@ -146,7 +141,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
         return true;
       }
 
-      const searchable = [row.fullName, row.email, row.employeeProfile?.position ?? ""].join(" ").toLowerCase();
+      const searchable = [row.fullName, row.email].join(" ").toLowerCase();
       return searchable.includes(normalizedQuery);
     })
     .map((row) => {
@@ -189,10 +184,9 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-5">
+      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-4">
         <input value={formState.fullName} onChange={(event) => setFormState((prev) => ({ ...prev, fullName: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="ФИО *" />
         <input value={formState.email} onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Email *" type="email" />
-        <input value={formState.position} onChange={(event) => setFormState((prev) => ({ ...prev, position: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Должность *" />
         <select value={formState.departmentId} onChange={(event) => setFormState((prev) => ({ ...prev, departmentId: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
           <option value="">Без отдела</option>
           {departments.map((department) => (
@@ -215,7 +209,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-sm text-slate-500">
               <tr>
-                {["ФИО", "Email", "Должность", "Отдел", "Статус", "Эффективность", "Курсы", "Действия"].map((head) => (
+                {["ФИО", "Email", "Отдел", "Курсы", "Действия"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
@@ -225,14 +219,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
                 <tr key={row.id} className="border-t border-slate-100 text-sm">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
                   <td className="px-4 py-3 text-slate-600">{row.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{row.employeeProfile?.position ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{department?.name ?? "—"}</td>
-                  <td className="px-4 py-3"><StatusBadge status={row.employeeProfile?.status ?? "inactive"} /></td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-28">
-                      <ProgressBar value={row.employeeProfile?.performance ?? 0} />
-                    </div>
-                  </td>
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
                   <td className="px-4 py-3">
                     <div className="inline-flex gap-2">
@@ -244,7 +231,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
               ))}
               {!renderedRows.length ? (
                 <tr className="border-t border-slate-100 text-sm">
-                  <td className="px-4 py-6 text-slate-500" colSpan={8}>Сотрудники по выбранным фильтрам не найдены.</td>
+                  <td className="px-4 py-6 text-slate-500" colSpan={5}>Сотрудники по выбранным фильтрам не найдены.</td>
                 </tr>
               ) : null}
             </tbody>
