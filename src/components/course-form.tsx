@@ -115,7 +115,15 @@ export function CourseForm() {
             <p className="mt-1 text-xs text-rose-600">{form.formState.errors.category?.message}</p>
           </div>
           <div>
-            <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность" {...form.register("duration")} />
+            <input
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Длительность (число дней)"
+              type="number"
+              min={1}
+              onChange={(event) => form.setValue("duration", formatDurationToDays(event.target.value), { shouldValidate: true })}
+            />
+            <p className="mt-1 text-xs text-slate-500">{durationValue || "Например: 5 дн."}</p>
+            <input type="hidden" {...form.register("duration")} />
             <p className="mt-1 text-xs text-rose-600">{form.formState.errors.duration?.message}</p>
           </div>
           <div className="md:col-span-2">
@@ -289,3 +297,8 @@ export function CourseForm() {
     </>
   );
 }
+  const formatDurationToDays = (raw: string) => {
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) return "";
+    return `${value} дн.`;
+  };
