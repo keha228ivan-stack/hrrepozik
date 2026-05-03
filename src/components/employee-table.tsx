@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { useAuth } from "@/contexts/auth-context";
 
 type EmployeeRow = {
@@ -215,24 +213,17 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-sm text-slate-500">
               <tr>
-                {["ФИО", "Email", "Должность", "Отдел", "Статус", "Эффективность", "Курсы", "Действия"].map((head) => (
+                {["ФИО", "Email", "Должность", "Курсы", "Действия"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {renderedRows.map(({ row, department }) => (
+              {renderedRows.map(({ row }) => (
                 <tr key={row.id} className="border-t border-slate-100 text-sm">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.fullName}</td>
                   <td className="px-4 py-3 text-slate-600">{row.email}</td>
                   <td className="px-4 py-3 text-slate-600">{row.employeeProfile?.position ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-600">{department?.name ?? "—"}</td>
-                  <td className="px-4 py-3"><StatusBadge status={row.employeeProfile?.status ?? "inactive"} /></td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-28">
-                      <ProgressBar value={row.employeeProfile?.performance ?? 0} />
-                    </div>
-                  </td>
                   <td className="px-4 py-3 text-slate-600">{(row.employeeProfile?.completedCourses ?? 0) + (row.employeeProfile?.inProgressCourses ?? 0)}</td>
                   <td className="px-4 py-3">
                     <div className="inline-flex gap-2">
@@ -244,7 +235,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
               ))}
               {!renderedRows.length ? (
                 <tr className="border-t border-slate-100 text-sm">
-                  <td className="px-4 py-6 text-slate-500" colSpan={8}>Сотрудники по выбранным фильтрам не найдены.</td>
+                  <td className="px-4 py-6 text-slate-500" colSpan={5}>Сотрудники по выбранным фильтрам не найдены.</td>
                 </tr>
               ) : null}
             </tbody>
