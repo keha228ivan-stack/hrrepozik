@@ -36,7 +36,7 @@ export async function POST(request: Request) {
           throw new Error("Backend proxy is disabled");
         }
 
-        const formData = await request.formData();
+        const formData = await request.clone().formData();
         const payload = {
           title: String(formData.get("title") ?? ""),
           category: String(formData.get("category") ?? ""),
