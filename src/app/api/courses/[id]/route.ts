@@ -143,11 +143,15 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
   try {
     if (isBackendProxyEnabled()) {
-      const { id } = await props.params;
-      return await proxyBackendRequest(new Request(_request.url, {
-        method: "DELETE",
-        headers: _request.headers,
-      }), `/courses/${id}`);
+      try {
+        const { id } = await props.params;
+        return await proxyBackendRequest(new Request(_request.url, {
+          method: "DELETE",
+          headers: _request.headers,
+        }), `/courses/${id}`);
+      } catch (proxyError) {
+        console.warn("DELETE /api/courses/[id] proxy failed, falling back to local delete", proxyError);
+      }
     }
 
     const payload = await requireAuth();
