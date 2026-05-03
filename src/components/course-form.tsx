@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 
 export function CourseForm() {
   const [quizQuestions, setQuizQuestions] = useState([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
-  const [lessons, setLessons] = useState([{ title: "", duration: "", content: "", files: [] as File[] }]);
+  const [lessons, setLessons] = useState([{ title: "", content: "", files: [] as File[] }]);
   const { authFetch } = useAuth();
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -70,13 +70,12 @@ export function CourseForm() {
       .filter((item) => item.question && item.options.length >= 2);
     payload.append("quizQuestionsJson", JSON.stringify(normalizedQuizQuestions));
     const normalizedLessons = lessons
-      .map((lesson) => ({
-        title: lesson.title.trim(),
-        duration: lesson.duration.trim(),
-        content: lesson.content.trim(),
-        fileNames: lesson.files.map((file) => file.name),
-      }))
-      .filter((lesson) => lesson.title && lesson.duration);
+        .map((lesson) => ({
+          title: lesson.title.trim(),
+          content: lesson.content.trim(),
+          fileNames: lesson.files.map((file) => file.name),
+        }))
+        .filter((lesson) => lesson.title);
     payload.append("lessonsJson", JSON.stringify(normalizedLessons));
     lessons.forEach((lesson, lessonIndex) => {
       lesson.files.forEach((file) => payload.append(`lessonFiles:${lessonIndex}`, file));
@@ -98,7 +97,7 @@ export function CourseForm() {
     setCreatedCourse(data.course ?? null);
     form.reset();
     setQuizQuestions([{ question: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A" }]);
-    setLessons([{ title: "", duration: "", content: "", files: [] }]);
+    setLessons([{ title: "", content: "", files: [] }]);
     setIsPreviewOpen(false);
   });
 
@@ -221,10 +220,7 @@ export function CourseForm() {
                     Удалить урок
                   </button>
                 </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={`Урок ${index + 1}: название`} value={lesson.title} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)))} />
-                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Длительность урока" value={lesson.duration} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, duration: event.target.value } : item)))} />
-                </div>
+                <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={`Урок ${index + 1}: название`} value={lesson.title} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)))} />
                 <textarea className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" rows={2} placeholder="Содержание урока: текст, ссылки, описание материалов" value={lesson.content} onChange={(event) => setLessons((prev) => prev.map((item, i) => (i === index ? { ...item, content: event.target.value } : item)))} />
                 <input
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -236,7 +232,7 @@ export function CourseForm() {
                 {lesson.files.length ? <p className="text-xs text-slate-500">Файлы урока: {lesson.files.map((file) => file.name).join(", ")}</p> : null}
               </div>
             ))}
-            <button type="button" onClick={() => setLessons((prev) => [...prev, { title: "", duration: "", content: "", files: [] }])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+            <button type="button" onClick={() => setLessons((prev) => [...prev, { title: "", content: "", files: [] }])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
               + Добавить урок
             </button>
           </div>
