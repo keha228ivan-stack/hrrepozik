@@ -11,7 +11,6 @@ const managerMenu = [
   { href: "/manager/training", label: "Назначение обучения" },
   { href: "/manager/courses/new", label: "Создать курс" },
   { href: "/manager/courses", label: "Библиотека курсов" },
-  { href: "/manager/reports", label: "Отчёты" },
 ];
 
 export default function DashboardPage() {
@@ -68,7 +67,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <SectionHeader title="Панель менеджера" subtitle={`Кабинет доступен только менеджерам${user ? ` · ${user.fullName}` : ""}`} />
       <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        Здесь вы управляете сотрудниками, курсами, назначениями и отчётностью.
+        Здесь вы управляете сотрудниками, курсами и назначениями обучения.
       </div>
       {isEmptyAccount ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
@@ -76,7 +75,7 @@ export default function DashboardPage() {
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
             <li>Добавьте первого сотрудника.</li>
             <li>Создайте первый курс.</li>
-            <li>Назначьте обучение сотруднику и отслеживайте прогресс в отчётах.</li>
+            <li>Назначьте обучение сотруднику и отслеживайте прогресс.</li>
           </ol>
         </div>
       ) : null}
