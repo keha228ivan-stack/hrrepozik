@@ -19,8 +19,10 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.department.deleteMany();
 
-  const depDev = await prisma.department.create({ data: { name: "Разработка" } });
-  const depHr = await prisma.department.create({ data: { name: "HR" } });
+  await prisma.department.create({ data: { name: "Отдел продаж" } });
+  const depAccounting = await prisma.department.create({ data: { name: "Бухгалтерия" } });
+  const depIt = await prisma.department.create({ data: { name: "IT-отдел" } });
+  await prisma.department.create({ data: { name: "Производство" } });
 
   const managerPasswordHash = await bcrypt.hash("manager123", 10);
   const employeePasswordHash = await bcrypt.hash("employee123", 10);
@@ -31,7 +33,7 @@ async function main() {
       email: "manager@company.ru",
       passwordHash: managerPasswordHash,
       role: UserRole.MANAGER,
-      departmentId: depHr.id,
+      departmentId: depAccounting.id,
     },
   });
 
@@ -41,7 +43,7 @@ async function main() {
       email: "employee@company.ru",
       passwordHash: employeePasswordHash,
       role: UserRole.EMPLOYEE,
-      departmentId: depDev.id,
+      departmentId: depIt.id,
       employeeProfile: {
         create: {
           position: "Senior Developer",

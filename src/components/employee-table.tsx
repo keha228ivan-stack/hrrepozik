@@ -10,7 +10,6 @@ type EmployeeRow = {
   email: string;
   departmentId: string | null;
   employeeProfile: {
-    position: string;
     status: "active" | "onboarding" | "vacation" | "inactive";
     performance: number;
     completedCourses: number;
@@ -42,7 +41,6 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
   const [formState, setFormState] = useState({
     fullName: "",
     email: "",
-    position: "",
     departmentId: "",
     status: "onboarding",
   });
@@ -82,7 +80,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
     event.preventDefault();
     setError(null);
     setSuccess(null);
-    if (!formState.fullName || !formState.email || !formState.position) {
+    if (!formState.fullName || !formState.email) {
       setError("Заполните обязательные поля");
       return;
     }
@@ -112,7 +110,6 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
       setFormState({
         fullName: "",
         email: "",
-        position: "",
         departmentId: "",
         status: "onboarding",
       });
@@ -144,7 +141,7 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
         return true;
       }
 
-      const searchable = [row.fullName, row.email, row.employeeProfile?.position ?? ""].join(" ").toLowerCase();
+      const searchable = [row.fullName, row.email].join(" ").toLowerCase();
       return searchable.includes(normalizedQuery);
     })
     .map((row) => {
@@ -187,10 +184,9 @@ export function EmployeeTable({ query, departmentId, status, onDepartmentsChange
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-5">
+      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-4">
         <input value={formState.fullName} onChange={(event) => setFormState((prev) => ({ ...prev, fullName: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="ФИО *" />
         <input value={formState.email} onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Email *" type="email" />
-        <input value={formState.position} onChange={(event) => setFormState((prev) => ({ ...prev, position: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Должность *" />
         <select value={formState.departmentId} onChange={(event) => setFormState((prev) => ({ ...prev, departmentId: event.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
           <option value="">Без отдела</option>
           {departments.map((department) => (
